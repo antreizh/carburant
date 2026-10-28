@@ -30,6 +30,7 @@
   --warn: #b36b00;
   --bad: #c0362c;
   --chip: #e2e6ea;
+  --city-totem: #7cc4ff;
   --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
   --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light;
@@ -58,7 +59,9 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 /* Totem */
 .totem { background: var(--totem); color: var(--totem-ink); border-radius: 14px; padding: 14px 16px 16px; display: grid; gap: 10px; }
 .totem-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.place { font: 600 13px/1.2 var(--font-display); letter-spacing: .08em; text-transform: uppercase; opacity: .8; }
+.place { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; min-width: 0; }
+.place-name { font: 700 22px/1.1 var(--font-display); letter-spacing: .02em; color: var(--city-totem); }
+.place-radius { font: 600 13px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--totem-ink); opacity: .7; }
 .refresh { background: none; border: 1px solid #ffffff2e; border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--totem-ink); display: inline-flex; gap: 6px; align-items: center; }
 .refresh.spin svg { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -152,7 +155,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 <main class="wrap">
   <section class="totem" aria-live="polite">
     <div class="totem-top">
-      <span class="place" id="place">Saint-Pierre-du-Perray · 10 km</span>
+      <div class="place"><span class="place-name">Saint-Pierre-du-Perray</span><span class="place-radius" id="place">rayon 10 km</span></div>
       <button class="refresh" id="refresh" aria-label="Actualiser">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>
         <span id="stamp">…</span>
@@ -360,7 +363,7 @@ function render() {
   $("tabNear").setAttribute("aria-selected", state.tab === "near");
   $("tabFav").setAttribute("aria-selected", state.tab === "fav");
   $("favCount").textContent = state.favIds.length ? "(" + state.favIds.length + ")" : "";
-  $("place").textContent = `${HOME.name} · ${state.radius} km`;
+  $("place").textContent = `rayon ${state.radius} km`;
   $("nearCtrl").hidden = $("list").hidden = state.tab !== "near";
   $("favs").hidden = state.tab !== "fav";
 
