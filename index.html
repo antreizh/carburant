@@ -15,7 +15,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap">
 <style>
-/* Layout : totem de station en tête (prix plancher), puis liste triée façon relevé de prix. */
+/* Layout : totem de station en tête (prix plancher), onglets Autour / Favorites, puis relevé de prix. */
 :root {
   --bg: #eef0f2;
   --surface: #ffffff;
@@ -25,6 +25,7 @@
   --totem: #14181d;
   --totem-ink: #f3f5f7;
   --led: #ffb020;
+  --star: #e89a00;
   --good: #1f8a4c;
   --warn: #b36b00;
   --bad: #c0362c;
@@ -36,12 +37,13 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #0d1013; --surface: #171b20; --ink: #e9ecef; --muted: #98a1ab; --line: #272d34;
-    --totem: #050607; --totem-ink: #f3f5f7; --led: #ffb83a;
+    --totem: #050607; --totem-ink: #f3f5f7; --led: #ffb83a; --star: #ffb83a;
     --good: #46c27a; --warn: #e3a23b; --bad: #ef6b5f; --chip: #222830;
     color-scheme: dark;
   }
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html, body { margin: 0; }
 body {
   background: var(--bg); color: var(--ink);
@@ -61,14 +63,21 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 .refresh.spin svg { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .best { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 8px; }
+.best > div { min-width: 0; }
 .best-label { font-size: 13px; opacity: .75; }
-.best-where { font-weight: 600; font-size: 15px; margin-top: 2px; }
+.best-where { font-weight: 600; font-size: 16px; margin-top: 2px; }
 .best-sub { font-size: 12px; opacity: .65; }
-.price-led { font: 700 52px/0.9 var(--font-display); color: var(--led); font-variant-numeric: tabular-nums; letter-spacing: .01em; }
-.price-led small { font-size: 22px; vertical-align: top; margin-left: 1px; }
+.price-led { font: 700 46px/0.9 var(--font-display); color: var(--led); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.price-led small { font-size: 22px; margin-left: 3px; }
 .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; border-top: 1px solid #ffffff1f; padding-top: 10px; }
 .stat b { display: block; font: 600 18px/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
 .stat span { font-size: 11px; opacity: .6; text-transform: uppercase; letter-spacing: .05em; }
+
+/* Onglets */
+.tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--chip); border-radius: 11px; padding: 3px; }
+.tabs button { border: 0; background: none; padding: 8px 6px; border-radius: 9px; font: 600 15px/1 var(--font-display); letter-spacing: .03em; color: var(--muted); }
+.tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px #0000001f; }
+.tabs .n { color: var(--star); }
 
 /* Contrôles */
 .fuels { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
@@ -86,11 +95,23 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 
 /* Liste */
 .list { background: var(--surface); border-radius: 14px; overflow: hidden; }
-.st { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 11px 14px; border-top: 1px solid var(--line); text-decoration: none; color: inherit; }
+.st { display: grid; grid-template-columns: auto 1fr; border-top: 1px solid var(--line); }
 .st:first-child { border-top: 0; }
+.fav { border: 0; background: none; padding: 12px 2px 0 10px; align-self: start; color: var(--muted); line-height: 0; }
+.fav svg { width: 20px; height: 20px; }
+.fav[aria-pressed="true"] { color: var(--star); }
+.fav[aria-pressed="true"] svg { fill: currentColor; }
+.st-link { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 11px 14px 11px 8px; text-decoration: none; color: inherit; min-width: 0; }
 .st-main { min-width: 0; }
+.brand { display: flex; align-items: center; gap: 6px; font: 700 11px/1.2 var(--font-display); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-bottom: 2px; }
+.logo { width: 18px; height: 18px; flex: none; border-radius: 4px; background: #fff; padding: 1px; object-fit: contain; box-shadow: 0 0 0 1px var(--line); }
+.logo.ph { display: inline-grid; place-items: center; background: var(--chip); color: var(--muted); font-size: 10px; letter-spacing: 0; box-shadow: none; }
+.totem .brand { color: var(--led); font-size: 12px; margin-top: 4px; }
+.totem .logo { width: 22px; height: 22px; box-shadow: none; }
+.card .logo { width: 22px; height: 22px; }
 .st-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .st-meta { font-size: 12px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
+.st-meta .addr { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .st-price { text-align: right; font: 700 22px/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .st-delta { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
 .lo { color: var(--good); } .hi { color: var(--bad); } .mid { color: var(--muted); }
@@ -100,11 +121,30 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 .st.off .st-price { color: var(--muted); font-size: 15px; }
 .bar { grid-column: 1 / -1; height: 3px; background: var(--chip); border-radius: 2px; margin-top: 6px; position: relative; }
 .bar i { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 2px; background: var(--muted); }
-.st:first-child .bar i { background: var(--good); }
+.bar i.top { background: var(--good); }
+
+/* Favorites */
+.favs { display: grid; gap: 10px; }
+.card { background: var(--surface); border-radius: 14px; padding: 14px; display: grid; gap: 10px; }
+.card-head { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; }
+.card-head > div { min-width: 0; }
+.card-name { font: 700 19px/1.15 var(--font-display); letter-spacing: .01em; }
+.card-sub { font-size: 12px; color: var(--muted); }
+.card .fav { padding: 2px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+.tile { background: var(--chip); border-radius: 9px; padding: 7px 9px; display: grid; gap: 1px; }
+.tile.sel { outline: 2px solid var(--ink); outline-offset: -2px; }
+.tile-l { font: 600 12px/1.2 var(--font-display); letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.tile-p { font: 700 21px/1.1 var(--font-display); font-variant-numeric: tabular-nums; }
+.tile-d { font-size: 11px; font-variant-numeric: tabular-nums; }
+.tile.out .tile-p { font-size: 15px; color: var(--bad); }
+.card-foot { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.go { background: var(--ink); color: var(--bg); text-decoration: none; border-radius: 8px; padding: 7px 12px; font-weight: 600; font-size: 13px; }
 
 .foot { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.5; }
 .foot a { color: inherit; }
-.empty { padding: 24px 16px; text-align: center; color: var(--muted); }
+.empty { padding: 24px 16px; text-align: center; color: var(--muted); background: var(--surface); border-radius: 14px; }
+.list .empty { border-radius: 0; }
 @media (prefers-reduced-motion: reduce) { .refresh.spin svg { animation: none; } }
 </style>
 </head>
@@ -121,10 +161,11 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
     <div class="best">
       <div>
         <div class="best-label" id="bestLabel">Moins cher · Gazole</div>
+        <div class="brand" id="bestBrand"></div>
         <div class="best-where" id="bestWhere">Chargement…</div>
         <div class="best-sub" id="bestSub">&nbsp;</div>
       </div>
-      <div class="price-led" id="bestPrice">-.---</div>
+      <div class="price-led" id="bestPrice">-,---<small>€</small></div>
     </div>
     <div class="stats">
       <div class="stat"><b id="sMed">–</b><span>Médiane</span></div>
@@ -134,9 +175,14 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
     </div>
   </section>
 
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabNear" data-tab="near">Autour de moi</button>
+    <button role="tab" id="tabFav" data-tab="fav">★ Favorites <span class="n" id="favCount"></span></button>
+  </div>
+
   <div class="fuels" id="fuels" role="group" aria-label="Carburant"></div>
 
-  <div class="row">
+  <div class="row" id="nearCtrl">
     <div class="seg" id="radius" role="group" aria-label="Rayon">
       <button data-v="5">5 km</button><button data-v="10">10 km</button><button data-v="15">15 km</button>
     </div>
@@ -147,20 +193,28 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 
   <div class="alert" id="alert" hidden></div>
   <div class="list" id="list"><div class="empty">Chargement des prix…</div></div>
+  <div class="favs" id="favs" hidden></div>
 
   <p class="foot">
-    Source : <a href="https://www.prix-carburants.gouv.fr" target="_blank" rel="noopener">prix-carburants.gouv.fr</a> (flux instantané, data.economie.gouv.fr).<br>
+    Prix : <a href="https://www.prix-carburants.gouv.fr" target="_blank" rel="noopener">prix-carburants.gouv.fr</a> (flux instantané). Noms : api.prix-carburants.2aaz.fr.<br>
     Prix déclarés par les stations. « Ancien » = prix non mis à jour depuis plus de 3 jours.
   </p>
 </main>
 
+<script src="names.js"></script>
+<script src="logos.js"></script>
 <script>
 const HOME = { lat: 48.6122, lon: 2.4945, name: "Saint-Pierre-du-Perray" };
 const API = "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/prix-des-carburants-en-france-flux-instantane-v2/records";
+const NAMES_API = "https://api.prix-carburants.2aaz.fr/station/";
 const FUELS = [
   { k: "gazole", label: "Gazole" }, { k: "e10", label: "SP95-E10" }, { k: "sp98", label: "SP98" },
   { k: "sp95", label: "SP95" }, { k: "e85", label: "E85" }, { k: "gplc", label: "GPLc" }
 ];
+const SELECT = ["id", "adresse", "ville", "cp", "geom", "horaires_automate_24_24"]
+  .concat(...FUELS.map(f => [f.k + "_prix", f.k + "_maj", f.k + "_rupture_type", f.k + "_rupture_debut"])).join(",");
+const STAR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>';
+
 const store = {
   get(k, d) { try { const v = localStorage.getItem("cp." + k); return v == null ? d : JSON.parse(v); } catch { return d; } },
   set(k, v) { try { localStorage.setItem("cp." + k, JSON.stringify(v)); } catch {} }
@@ -169,13 +223,20 @@ const state = {
   fuel: store.get("fuel", "gazole"),
   radius: store.get("radius", 10),
   sort: store.get("sort", "price"),
-  data: store.get("cache", null),   // { at, radius, rows }
+  favIds: store.get("favs", []),
+  tab: store.get("tab", "near"),
+  data: store.get("cache", null),        // { at, radius, rows }
+  favRows: store.get("favCache", {}),    // id -> ligne brute (favorites hors rayon)
+  names: Object.assign({}, window.STATION_NAMES || {}, store.get("names", {})),
   loading: false
 };
+if (!state.favIds.length && state.tab === "fav") state.tab = "near";
+
 const $ = id => document.getElementById(id);
 const fmt = p => p.toFixed(3).replace(".", ",");
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-const title = s => String(s || "").toLowerCase().replace(/(^|[\s'-])\p{L}/gu, m => m.toUpperCase());
+const title = s => String(s || "").toLowerCase().replace(/(^|[\s'’(-])\p{L}/gu, m => m.toUpperCase());
+const kmTxt = d => d == null ? "" : d.toFixed(1).replace(".", ",") + " km";
 
 function km(a, b) {
   const R = 6371, r = x => x * Math.PI / 180;
@@ -185,57 +246,123 @@ function km(a, b) {
 }
 // Les horodatages du flux sont en heure locale : on les lit tels quels.
 function ageDays(s) {
-  if (!s) return null;
-  const m = s.match(/(\d{4})-(\d{2})-(\d{2})/);
+  const m = s && s.match(/(\d{4})-(\d{2})-(\d{2})/);
   if (!m) return null;
-  const d = new Date(+m[1], m[2] - 1, +m[3]);
   const t = new Date(); t.setHours(0, 0, 0, 0);
-  return Math.round((t - d) / 864e5);
+  return Math.round((t - new Date(+m[1], m[2] - 1, +m[3])) / 864e5);
 }
 function majLabel(s) {
   const a = ageDays(s);
   if (a == null) return "";
-  const hm = (s.match(/T?(\d{2}):(\d{2})/) || []).slice(1).join("h");
-  if (a <= 0) return "maj " + hm;
-  if (a === 1) return "maj hier";
-  return "maj il y a " + a + " j";
+  if (a <= 0) return "maj " + (s.match(/T(\d{2}):(\d{2})/) || []).slice(1).join("h");
+  return a === 1 ? "maj hier" : "maj il y a " + a + " j";
+}
+
+// Nom de station : nom déclaré, sinon enseigne + ville
+function stationName(id, ville) {
+  const n = state.names[id];
+  if (n && n.n) return title(n.n);
+  if (n && n.b) return n.b + " " + ville;
+  return "Station " + ville;
+}
+function brandOf(id) { const n = state.names[id]; return n && n.b ? n.b : ""; }
+
+// Logo de marque : correspondance par préfixe (« TotalEnergies Access » → TotalEnergies) + alias
+const LOGO_ALIASES = { "agip": "ENI", "super u": "Système U", "hyper u": "Système U", "u express": "Système U", "leclerc": "E.Leclerc", "géant": "Casino", "spar": "Casino" };
+function logoFor(brand) {
+  const logos = window.BRAND_LOGOS || {}, b = (brand || "").toLowerCase();
+  if (!b) return "";
+  const key = Object.keys(logos).filter(k => b.startsWith(k.toLowerCase())).sort((x, y) => y.length - x.length)[0]
+    || LOGO_ALIASES[Object.keys(LOGO_ALIASES).find(a => b.startsWith(a))];
+  return key ? logos[key] : "";
+}
+function brandHtml(brand) {
+  const src = logoFor(brand);
+  const icon = src ? `<img class="logo" src="${src}" alt="">` : `<span class="logo ph" aria-hidden="true">${esc((brand || "?").charAt(0))}</span>`;
+  return icon + `<span>${esc(brand || "Marque non renseignée")}</span>`;
+}
+
+async function fetchMissingNames(ids) {
+  const missing = ids.filter(id => !state.names[id]).slice(0, 15);
+  if (!missing.length) return;
+  const extra = store.get("names", {});
+  await Promise.all(missing.map(async id => {
+    try {
+      const r = await fetch(NAMES_API + id, { headers: { Accept: "application/json" } });
+      if (!r.ok) return;
+      const j = await r.json();
+      state.names[id] = extra[id] = { n: j.name || "", b: (j.Brand && j.Brand.name) || "" };
+    } catch {}
+  }));
+  store.set("names", extra);
+  render();
+}
+
+async function query(where) {
+  let rows = [], offset = 0, total = Infinity;
+  while (offset < total && offset < 300) {
+    const q = new URLSearchParams({ where, select: SELECT, limit: "100", offset: String(offset) });
+    const r = await fetch(API + "?" + q, { cache: "no-store" });
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    total = j.total_count; rows = rows.concat(j.results); offset += 100;
+  }
+  return rows;
 }
 
 async function load() {
   if (state.loading) return;
   state.loading = true; $("refresh").classList.add("spin"); $("stamp").textContent = "Actualisation…";
+  let ok = true;
   try {
-    const sel = ["id", "adresse", "ville", "cp", "geom", "horaires_automate_24_24"]
-      .concat(...FUELS.map(f => [f.k + "_prix", f.k + "_maj", f.k + "_rupture_type", f.k + "_rupture_debut"]));
-    const where = `within_distance(geom, geom'POINT(${HOME.lon} ${HOME.lat})', ${state.radius}km)`;
-    let rows = [], offset = 0, total = Infinity;
-    while (offset < total && offset < 300) {
-      const q = new URLSearchParams({ where, select: sel.join(","), limit: "100", offset: String(offset) });
-      const r = await fetch(API + "?" + q, { cache: "no-store" });
-      if (!r.ok) throw new Error("HTTP " + r.status);
-      const j = await r.json();
-      total = j.total_count; rows = rows.concat(j.results); offset += 100;
-    }
+    const near = query(`within_distance(geom, geom'POINT(${HOME.lon} ${HOME.lat})', ${state.radius}km)`);
+    const favs = state.favIds.length ? query(state.favIds.map(id => `id=${+id}`).join(" or ")) : Promise.resolve([]);
+    const [rows, favRows] = await Promise.all([near, favs]);
     state.data = { at: Date.now(), radius: state.radius, rows };
-    store.set("cache", state.data);
-    $("alert").hidden = true;
-  } catch (e) {
-    $("alert").hidden = false;
-    $("alert").innerHTML = "<strong>Pas de connexion au flux officiel.</strong> " +
-      (state.data ? "Affichage des derniers prix enregistrés." : "Vérifiez le réseau puis touchez Actualiser.");
-  } finally {
-    state.loading = false; $("refresh").classList.remove("spin");
-    render();
-  }
+    state.favRows = Object.fromEntries(favRows.map(r => [r.id, r]));
+    store.set("cache", state.data); store.set("favCache", state.favRows);
+  } catch (e) { ok = false; }
+  state.loading = false; $("refresh").classList.remove("spin");
+  state.netError = !ok;
+  render();
+  if (state.data) fetchMissingNames(state.data.rows.map(r => r.id).concat(state.favIds));
 }
+
+function station(r, fk) {
+  const g = r.geom || {};
+  return {
+    id: r.id, ville: title(r.ville), adresse: title(r.adresse), lat: g.lat, lon: g.lon,
+    dist: g.lat ? km(HOME, g) : null, price: r[fk + "_prix"], maj: r[fk + "_maj"], rupt: r[fk + "_rupture_type"],
+    h24: r.horaires_automate_24_24 === "Oui", name: stationName(r.id, title(r.ville)), brand: brandOf(r.id)
+  };
+}
+// Statistiques de zone pour un carburant (médiane, min, max)
+function zoneStats(fk) {
+  const rows = (state.data ? state.data.rows : []).filter(r => !r.geom || km(HOME, r.geom) <= state.radius + 0.3);
+  const p = rows.map(r => r[fk + "_rupture_type"] ? null : r[fk + "_prix"]).filter(x => x != null).sort((a, b) => a - b);
+  if (!p.length) return null;
+  const med = p.length % 2 ? p[(p.length - 1) / 2] : (p[p.length / 2 - 1] + p[p.length / 2]) / 2;
+  return { med, min: p[0], max: p[p.length - 1], n: p.length };
+}
+function deltaHtml(price, med, tag = "div", cls = "st-delta") {
+  if (med == null) return "";
+  const d = price - med, c = d < -0.0005 ? "lo" : d > 0.0005 ? "hi" : "mid";
+  return `<${tag} class="${cls} ${c}">${d > 0 ? "+" : d < 0 ? "−" : "±"}${Math.abs(d * 100).toFixed(1).replace(".", ",")} c vs médiane</${tag}>`;
+}
+const isFav = id => state.favIds.includes(id);
+const favBtn = (id, name) => `<button class="fav" data-fav="${id}" aria-pressed="${isFav(id)}" aria-label="${isFav(id) ? "Retirer des favorites" : "Ajouter aux favorites"} : ${esc(name)}">${STAR}</button>`;
 
 function render() {
   const f = FUELS.find(x => x.k === state.fuel) || FUELS[0];
-  // contrôles
   $("fuels").innerHTML = FUELS.map(x => `<button class="chip" data-k="${x.k}" aria-pressed="${x.k === f.k}">${x.label}</button>`).join("");
   for (const b of $("radius").children) b.setAttribute("aria-pressed", +b.dataset.v === state.radius);
   for (const b of $("sort").children) b.setAttribute("aria-pressed", b.dataset.v === state.sort);
+  $("tabNear").setAttribute("aria-selected", state.tab === "near");
+  $("tabFav").setAttribute("aria-selected", state.tab === "fav");
+  $("favCount").textContent = state.favIds.length ? "(" + state.favIds.length + ")" : "";
   $("place").textContent = `${HOME.name} · ${state.radius} km`;
+  $("nearCtrl").hidden = $("list").hidden = state.tab !== "near";
+  $("favs").hidden = state.tab !== "fav";
 
   const d = state.data;
   if (!d) return;
@@ -243,84 +370,127 @@ function render() {
   $("stamp").textContent = (Date.now() - d.at < 864e5 ? "" : at.toLocaleDateString("fr-FR") + " ") +
     at.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
-  const all = d.rows.map(r => {
-    const g = r.geom || {};
-    const price = r[f.k + "_prix"];
-    const rupt = r[f.k + "_rupture_type"];
-    return {
-      id: r.id, ville: title(r.ville), adresse: title(r.adresse), lat: g.lat, lon: g.lon,
-      dist: g.lat ? km(HOME, g) : null, price, maj: r[f.k + "_maj"], rupt,
-      h24: r.horaires_automate_24_24 === "Oui"
-    };
-  }).filter(s => s.dist == null || s.dist <= state.radius + 0.3);
-
+  const all = d.rows.map(r => station(r, f.k)).filter(s => s.dist == null || s.dist <= state.radius + 0.3);
   const sells = all.filter(s => s.price != null || s.rupt === "temporaire");
   const avail = sells.filter(s => s.price != null && !s.rupt);
   const out = sells.filter(s => s.rupt === "temporaire");
-  const prices = avail.map(s => s.price).sort((a, b) => a - b);
-  const med = prices.length ? (prices.length % 2 ? prices[(prices.length - 1) / 2] : (prices[prices.length / 2 - 1] + prices[prices.length / 2]) / 2) : null;
-  const min = prices[0], max = prices[prices.length - 1];
+  const z = zoneStats(f.k);
 
-  // totem
+  // Totem
   const best = avail.slice().sort((a, b) => a.price - b.price || a.dist - b.dist)[0];
   $("bestLabel").textContent = "Moins cher · " + f.label;
   if (best) {
-    $("bestWhere").textContent = best.ville;
-    $("bestSub").textContent = `${best.adresse} · ${best.dist.toFixed(1).replace(".", ",")} km · ${majLabel(best.maj)}`;
-    const s = best.price.toFixed(3);
-    $("bestPrice").innerHTML = `${s.slice(0, -1).replace(".", ",")}<small>${s.slice(-1)}</small>`;
+    $("bestBrand").innerHTML = brandHtml(best.brand);
+    $("bestWhere").textContent = best.name;
+    $("bestSub").textContent = `${best.adresse}, ${best.ville} · ${kmTxt(best.dist)} · ${majLabel(best.maj)}`;
+    $("bestPrice").innerHTML = `${fmt(best.price)}<small>€</small>`;
   } else {
+    $("bestBrand").textContent = "";
     $("bestWhere").textContent = "Aucune station ne propose ce carburant";
-    $("bestSub").innerHTML = "&nbsp;"; $("bestPrice").textContent = "-,---";
+    $("bestSub").innerHTML = "&nbsp;"; $("bestPrice").innerHTML = "-,---<small>€</small>";
   }
-  $("sMed").textContent = med != null ? fmt(med) : "–";
-  $("sMax").textContent = max != null ? fmt(max) : "–";
-  $("sSave").textContent = prices.length > 1 ? Math.round((max - min) * 50) + " €" : "–";
+  $("sMed").textContent = z ? fmt(z.med) : "–";
+  $("sMax").textContent = z ? fmt(z.max) : "–";
+  $("sSave").textContent = z && z.n > 1 ? Math.round((z.max - z.min) * 50) + " €" : "–";
   $("sAvail").textContent = `${avail.length}/${sells.length}`;
 
-  // alerte ruptures (si pas d'erreur réseau affichée)
-  if ($("alert").hidden || !$("alert").textContent.startsWith("Pas")) {
-    if (out.length) {
-      $("alert").hidden = false;
-      $("alert").innerHTML = `<strong>Rupture ${esc(f.label)}</strong> dans ${out.length} station${out.length > 1 ? "s" : ""} : ` +
-        out.sort((a, b) => a.dist - b.dist).map(s => esc(s.ville)).join(", ");
-    } else $("alert").hidden = true;
-  }
+  // Alerte : réseau prioritaire, sinon ruptures
+  if (state.netError) {
+    $("alert").hidden = false;
+    $("alert").innerHTML = "<strong>Pas de connexion au flux officiel.</strong> Affichage des derniers prix enregistrés.";
+  } else if (out.length && state.tab === "near") {
+    $("alert").hidden = false;
+    $("alert").innerHTML = `<strong>Rupture ${esc(f.label)}</strong> dans ${out.length} station${out.length > 1 ? "s" : ""} : ` +
+      out.sort((a, b) => a.dist - b.dist).map(s => esc(s.name) + (s.brand ? ` (${esc(s.brand)})` : "")).join(", ");
+  } else $("alert").hidden = true;
 
-  // liste
+  if (state.tab === "near") renderList(sells, z, f);
+  else renderFavs(f);
+}
+
+function renderList(sells, z, f) {
   const list = sells.slice().sort((a, b) => {
     const ao = a.price == null || a.rupt, bo = b.price == null || b.rupt;
     if (ao !== bo) return ao ? 1 : -1;
     return state.sort === "dist" ? a.dist - b.dist : (a.price - b.price || a.dist - b.dist);
   });
   if (!list.length) { $("list").innerHTML = `<div class="empty">Aucune station ne distribue du ${esc(f.label)} dans ce rayon.</div>`; return; }
-  const span = Math.max(0.001, max - min);
+  const span = z ? Math.max(0.001, z.max - z.min) : 1;
   $("list").innerHTML = list.map(s => {
     const off = s.price == null || s.rupt;
     const old = !off && ageDays(s.maj) > 3;
-    const delta = !off && med != null ? s.price - med : 0;
-    const cls = delta < -0.0005 ? "lo" : delta > 0.0005 ? "hi" : "mid";
-    const nav = `https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}`;
-    const w = off ? 0 : 100 - ((s.price - min) / span) * 85;
-    return `<a class="st${off ? " off" : ""}" href="${nav}" target="_blank" rel="noopener">
-      <div class="st-main">
-        <div class="st-name">${esc(s.ville)}</div>
-        <div class="st-meta"><span>${esc(s.adresse)}</span></div>
-        <div class="st-meta"><span>${s.dist.toFixed(1).replace(".", ",")} km</span>${s.h24 ? "<span>24/24</span>" : ""}<span>${off ? "" : majLabel(s.maj)}</span>
-          ${off ? '<span class="badge b-out">Rupture</span>' : ""}${old ? '<span class="badge b-old">Ancien</span>' : ""}</div>
-      </div>
-      <div>
-        <div class="st-price">${off ? "Indispo." : fmt(s.price)}</div>
-        ${off ? "" : `<div class="st-delta ${cls}">${delta > 0 ? "+" : delta < 0 ? "−" : "±"}${Math.abs(delta * 100).toFixed(1).replace(".", ",")} c</div>`}
-      </div>
-      ${off ? "" : `<div class="bar"><i style="width:${w.toFixed(0)}%"></i></div>`}
-    </a>`;
+    const w = off ? 0 : 100 - ((s.price - z.min) / span) * 85;
+    return `<div class="st${off ? " off" : ""}">
+      ${favBtn(s.id, s.name)}
+      <a class="st-link" href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}" target="_blank" rel="noopener">
+        <div class="st-main">
+          <div class="brand">${brandHtml(s.brand)}</div>
+          <div class="st-name">${esc(s.name)}</div>
+          <div class="st-meta"><span class="addr">${esc(s.adresse)}, ${esc(s.ville)}</span></div>
+          <div class="st-meta"><span>${kmTxt(s.dist)}</span>${s.h24 ? "<span>24/24</span>" : ""}${off ? "" : `<span>${majLabel(s.maj)}</span>`}
+            ${off ? '<span class="badge b-out">Rupture</span>' : ""}${old ? '<span class="badge b-old">Ancien</span>' : ""}</div>
+        </div>
+        <div>
+          <div class="st-price">${off ? "Indispo." : fmt(s.price)}</div>
+          ${off ? "" : deltaHtml(s.price, z && z.med).replace(" vs médiane", "")}
+        </div>
+        ${off ? "" : `<div class="bar"><i class="${s.price === z.min ? "top" : ""}" style="width:${w.toFixed(0)}%"></i></div>`}
+      </a>
+    </div>`;
   }).join("");
 }
 
-$("fuels").addEventListener("click", e => {
-  const b = e.target.closest("[data-k]"); if (!b) return;
-  state.fuel = b.dataset.k; store.set("fuel", state.fuel); render();
+function renderFavs(f) {
+  if (!state.favIds.length) {
+    $("favs").innerHTML = `<div class="empty">Aucune station favorite.<br>Touchez l'étoile ☆ d'une station dans « Autour de moi » pour l'ajouter ici.</div>`;
+    return;
+  }
+  const byId = Object.fromEntries((state.data ? state.data.rows : []).map(r => [r.id, r]));
+  $("favs").innerHTML = state.favIds.map(id => {
+    const r = state.favRows[id] || byId[id];
+    if (!r) return `<div class="card"><div class="card-head"><div><div class="card-name">${esc(stationName(id, ""))}</div><div class="card-sub">Données indisponibles pour le moment.</div></div>${favBtn(id, "")}</div></div>`;
+    const base = station(r, f.k);
+    const tiles = FUELS.map(x => {
+      const p = r[x.k + "_prix"], rt = r[x.k + "_rupture_type"];
+      if (p == null && rt !== "temporaire") return "";
+      const z = zoneStats(x.k);
+      const sel = x.k === f.k ? " sel" : "";
+      if (rt) return `<div class="tile out${sel}"><span class="tile-l">${x.label}</span><span class="tile-p">Rupture</span><span class="tile-d mid">${(m => m ? `depuis le ${m[3]}/${m[2]}` : "&nbsp;")((r[x.k + "_rupture_debut"] || "").match(/(\d{4})-(\d{2})-(\d{2})/))}</span></div>`;
+      return `<div class="tile${sel}"><span class="tile-l">${x.label}</span><span class="tile-p">${fmt(p)} €</span>${deltaHtml(p, z && z.med, "span", "tile-d").replace(" vs médiane", "")}</div>`;
+    }).join("");
+    const majs = FUELS.map(x => r[x.k + "_maj"]).filter(Boolean).sort().pop();
+    return `<article class="card">
+      <div class="card-head">
+        <div>
+          <div class="brand">${brandHtml(base.brand)}</div>
+          <div class="card-name">${esc(base.name)}</div>
+          <div class="card-sub">${esc(base.adresse)}, ${esc(base.ville)} · ${kmTxt(base.dist)}${base.h24 ? " · 24/24" : ""}</div>
+        </div>
+        ${favBtn(id, base.name)}
+      </div>
+      <div class="tiles">${tiles || '<span class="card-sub">Aucun prix déclaré.</span>'}</div>
+      <div class="card-foot"><span>${majLabel(majs)} · écart vs médiane de la zone (${state.radius} km)</span>
+        <a class="go" href="https://www.google.com/maps/dir/?api=1&destination=${base.lat},${base.lon}" target="_blank" rel="noopener">Itinéraire</a></div>
+    </article>`;
+  }).join("");
+}
+
+document.addEventListener("click", e => {
+  const fb = e.target.closest("[data-fav]");
+  if (fb) {
+    const id = +fb.dataset.fav;
+    state.favIds = isFav(id) ? state.favIds.filter(x => x !== id) : state.favIds.concat(id);
+    store.set("favs", state.favIds);
+    if (state.data && isFav(id)) {
+      const r = state.data.rows.find(x => x.id === id);
+      if (r) { state.favRows[id] = r; store.set("favCache", state.favRows); }
+    }
+    render(); return;
+  }
+  const chip = e.target.closest("[data-k]");
+  if (chip) { state.fuel = chip.dataset.k; store.set("fuel", state.fuel); render(); return; }
+  const tab = e.target.closest("[data-tab]");
+  if (tab) { state.tab = tab.dataset.tab; store.set("tab", state.tab); render(); return; }
 });
 $("radius").addEventListener("click", e => {
   const b = e.target.closest("[data-v]"); if (!b) return;
