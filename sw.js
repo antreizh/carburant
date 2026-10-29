@@ -1,7 +1,8 @@
 // Réseau d'abord pour l'application (toujours la dernière version),
 // cache en secours hors connexion. Les appels à l'API de prix ne sont pas interceptés.
-const CACHE = "plein-eco-v5";
-const SHELL = ["./", "index.html", "names.js", "logos.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-180.png"];
+const CACHE = "plein-eco-v6";
+const SHELL = ["./", "index.html", "names.js", "logos.js", "manifest.webmanifest", "logo-128.png",
+  "icon-192.png", "icon-512.png", "icon-180.png", "icon-maskable-512.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));

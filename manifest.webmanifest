@@ -1,16 +1,17 @@
 {
   "name": "Plein Éco",
   "short_name": "Plein Éco",
-  "description": "Prix, disponibilité et coût complet du carburant dans les stations autour de vous.",
+  "description": "Le carburant au meilleur prix, sans faire des kilomètres.",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#14181d",
-  "theme_color": "#14181d",
+  "background_color": "#022836",
+  "theme_color": "#022836",
   "icons": [
-    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

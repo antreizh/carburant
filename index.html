@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Plein Éco</title>
-<meta name="theme-color" content="#14181d">
+<meta name="theme-color" content="#022836">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -32,6 +32,7 @@
   --bad: #c0362c;
   --chip: #e2e6ea;
   --city-totem: #7cc4ff;
+  --brand: #2c8a3c;          /* vert du logo, lisible sur fond clair */
   --font-display: "Barlow Semi Condensed", "Arial Narrow", system-ui, sans-serif;
   --font-body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light;
@@ -40,7 +41,7 @@
   :root {
     --bg: #0d1013; --surface: #171b20; --ink: #e9ecef; --muted: #98a1ab; --line: #272d34;
     --totem: #050607; --totem-ink: #f3f5f7; --led: #ffb83a; --star: #ffb83a;
-    --good: #46c27a; --warn: #e3a23b; --bad: #ef6b5f; --chip: #222830;
+    --good: #46c27a; --warn: #e3a23b; --bad: #ef6b5f; --chip: #222830; --brand: #8ad85c;
     color-scheme: dark;
   }
 }
@@ -63,6 +64,12 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 .totem-top { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "sel sel" "tools radius"; align-items: center; gap: 6px 8px; }
 .totem-top select { grid-area: sel; }
 .totem-top .tools { grid-area: tools; }
+/* Bandeau de marque : logo, nom, slogan */
+.brandbar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 2px 2px 0; }
+.brandbar img { width: 52px; height: 52px; display: block; filter: drop-shadow(0 2px 4px #00000026); }
+.brandbar h1 { margin: 0; font: 700 26px/1 var(--font-display); letter-spacing: .01em; color: var(--ink); text-wrap: balance; }
+.brandbar h1 span { color: var(--brand); }
+.slogan { margin: 3px 0 0; font-size: 13px; line-height: 1.3; color: var(--muted); }
 .place-name { font: 700 22px/1.1 var(--font-display); letter-spacing: .02em; color: var(--city-totem); }
 select.place-name {
   appearance: none; -webkit-appearance: none; background: transparent; border: 0; border-radius: 6px; padding: 2px 22px 2px 0; width: 100%; min-width: 0; cursor: pointer;
@@ -182,6 +189,13 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
 </head>
 <body>
 <main class="wrap">
+  <header class="brandbar">
+    <img src="logo-128.png" alt="" width="52" height="52">
+    <div>
+      <h1>Plein <span>Éco</span></h1>
+      <p class="slogan">Le carburant au meilleur prix, sans faire des kilomètres.</p>
+    </div>
+  </header>
   <section class="totem" aria-live="polite">
     <div class="totem-top">
         <select class="place-name" id="placeSel" aria-label="Commune de référence">
@@ -292,7 +306,8 @@ const state = {
   fuel: store.get("fuel", "gazole"),
   radius: store.get("radius", 10),
   sort: store.get("sort", "price"),
-  favIds: store.get("favs", []),
+  favsBy: store.get("favsBy", null),     // favorites par localité : { spdp: [ids], chateaulin: [...], gps: [...] }
+  favIds: [],                            // favorites de la localité courante
   tab: store.get("tab", "near"),
   place: store.get("place", "spdp"),     // clé de PLACES ou "gps"
   plein: store.get("plein", 48),          // volume du plein en litres (coût complet, écart)
@@ -302,9 +317,16 @@ const state = {
   names: Object.assign({}, window.STATION_NAMES || {}, store.get("names", {})),
   loading: false
 };
-if (!state.favIds.length && state.tab === "fav") state.tab = "near";
 if (!PLACES[state.place] && !(state.place === "gps" && state.gpsAllowed)) state.place = "spdp";
 if (state.data && (state.data.place || "spdp") !== state.place) state.data = null;   // cache d'une autre commune
+if (!state.favsBy) {   // ancienne liste unique : rattachée à la localité en cours
+  state.favsBy = { [state.place]: store.get("favs", []) };
+  store.set("favsBy", state.favsBy); store.del("favs");
+}
+delete state.favsBy.gps;   // favorites GPS d'une session précédente (fermeture non détectée)
+store.set("favsBy", state.favsBy);
+state.favIds = state.favsBy[state.place] || [];
+if (!state.favIds.length && state.tab === "fav") state.tab = "near";
 
 const $ = id => document.getElementById(id);
 const fmt = p => p.toFixed(3).replace(".", ",");
@@ -612,7 +634,8 @@ function renderList(sells, z, f) {
 
 function renderFavs(f) {
   if (!state.favIds.length) {
-    $("favs").innerHTML = `<div class="empty">Aucune station favorite.<br>Touchez l'étoile ☆ d'une station dans « Autour de moi » pour l'ajouter ici.</div>`;
+    const where = state.place === "gps" ? "pour « Ma position (GPS) »" : `pour ${esc(HOME.name)}`;
+    $("favs").innerHTML = `<div class="empty">Aucune station favorite ${where}.<br>Touchez l'étoile ☆ d'une station dans « Autour de moi » pour l'ajouter ici.</div>`;
     return;
   }
   const byId = Object.fromEntries((state.data ? state.data.rows : []).map(r => [r.id, r]));
@@ -646,12 +669,19 @@ function renderFavs(f) {
   }).join("");
 }
 
+// Changement de localité : chaque localité (et le GPS) a ses propres favorites
+function setPlace(p) {
+  state.place = p; store.set("place", p);
+  state.favIds = state.favsBy[p] || [];
+}
+
 document.addEventListener("click", e => {
   const fb = e.target.closest("[data-fav]");
   if (fb) {
     const id = +fb.dataset.fav;
     state.favIds = isFav(id) ? state.favIds.filter(x => x !== id) : state.favIds.concat(id);
-    store.set("favs", state.favIds);
+    state.favsBy[state.place] = state.favIds;
+    store.set("favsBy", state.favsBy);
     if (state.data && isFav(id)) {
       const r = state.data.rows.find(x => x.id === id);
       if (r) { state.favRows[id] = r; store.set("favCache", state.favRows); }
@@ -697,7 +727,7 @@ $("gpsAllowed").addEventListener("change", e => {
     if (wasGps && loadCtrl) loadCtrl.abort();         // stoppe une localisation en cours
     clearGpsHistory();
     if (wasGps) {                                      // retour à la commune par défaut
-      state.place = "spdp"; store.set("place", state.place);
+      setPlace("spdp");
       resolveHome(); state.gpsError = false;
       $("list").innerHTML = `<div class="empty">Chargement des prix…</div>`;
       render(); load(); return;
@@ -706,7 +736,7 @@ $("gpsAllowed").addEventListener("change", e => {
   render();
 });
 $("placeSel").addEventListener("change", e => {
-  state.place = e.target.value; store.set("place", state.place);
+  setPlace(e.target.value);
   resolveHome(); state.data = null; state.gpsError = false;
   $("list").innerHTML = `<div class="empty">Chargement des prix…</div>`;
   $("bestWhere").textContent = "Chargement…"; $("bestBrand").textContent = ""; $("bestSub").innerHTML = "&nbsp;";
@@ -719,7 +749,14 @@ $("sort").addEventListener("click", e => {
 $("refresh").addEventListener("click", load);
 // Actualisation à chaque ouverture / retour au premier plan (> 1 min).
 // À la fermeture (arrière-plan, écran verrouillé, app quittée) : GPS et requêtes en cours sont annulés.
-const closeWidget = () => { if (loadCtrl) loadCtrl.abort(); };
+// Les favorites du mode GPS ne durent que le temps d'une ouverture : effacées à la fermeture.
+function clearGpsFavs() {
+  if (!state.favsBy.gps) return;
+  delete state.favsBy.gps;
+  store.set("favsBy", state.favsBy);
+  if (state.place === "gps") { state.favIds = []; render(); }
+}
+const closeWidget = () => { if (loadCtrl) loadCtrl.abort(); clearGpsFavs(); };
 document.addEventListener("visibilitychange", () => {
   if (!isOpen()) return closeWidget();
   if (state.pending || !state.data || Date.now() - state.data.at > 60e3) load();
