@@ -1,6 +1,6 @@
 {
-  "name": "Plein Éco",
-  "short_name": "Plein Éco",
+  "name": "Ma station service Éco",
+  "short_name": "Ma station Éco",
   "description": "Le carburant au meilleur prix, sans faire des kilomètres.",
   "lang": "fr",
   "start_url": "./",
