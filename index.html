@@ -58,18 +58,20 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 
 /* Totem */
 .totem { background: var(--totem); color: var(--totem-ink); border-radius: 14px; padding: 14px 16px 16px; display: grid; gap: 10px; }
-.totem-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.place { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; min-width: 0; flex: 1 1 auto; }
+/* En-tête : sélecteur de commune sur toute la largeur, puis boutons à gauche et rayon aligné à droite */
+.totem-top { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "sel sel" "tools radius"; align-items: center; gap: 6px 8px; }
+.totem-top select { grid-area: sel; }
+.totem-top .tools { grid-area: tools; }
 .place-name { font: 700 22px/1.1 var(--font-display); letter-spacing: .02em; color: var(--city-totem); }
 select.place-name {
-  appearance: none; -webkit-appearance: none; background: transparent; border: 0; border-radius: 6px; padding: 0 22px 0 0; max-width: 100%; min-width: 0; cursor: pointer;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 20px;
+  appearance: none; -webkit-appearance: none; background: transparent; border: 0; border-radius: 6px; padding: 2px 22px 2px 0; width: 100%; min-width: 0; cursor: pointer;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 24px;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%237cc4ff' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat; background-position: right 4px center;
 }
 select.place-name:focus-visible { outline: 2px solid var(--led); outline-offset: 2px; }
 select.place-name option { color: #15191e; background: #fff; font: 500 16px var(--font-body); }
-.place-radius { font: 600 13px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--totem-ink); opacity: .7; }
+.place-radius { grid-area: radius; justify-self: end; text-align: right; font: 600 13px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--totem-ink); opacity: .7; }
 .refresh { background: none; border: 1px solid #ffffff2e; border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--totem-ink); display: inline-flex; gap: 6px; align-items: center; }
 .refresh.spin svg { animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
@@ -176,15 +178,12 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
 <main class="wrap">
   <section class="totem" aria-live="polite">
     <div class="totem-top">
-      <div class="place">
         <select class="place-name" id="placeSel" aria-label="Commune de référence">
           <option value="spdp">Saint-Pierre-du-Perray</option>
           <option value="chateaulin">Châteaulin</option>
           <option value="corny">Corny-sur-Moselle</option>
           <option value="gps">Ma position (GPS)</option>
         </select>
-        <span class="place-radius" id="place">rayon 10 km</span>
-      </div>
       <div class="tools">
         <button class="refresh" id="refresh" aria-label="Actualiser">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>
@@ -194,6 +193,7 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
         </button>
       </div>
+      <span class="place-radius" id="place">rayon 10 km</span>
     </div>
     <div class="best">
       <div>
