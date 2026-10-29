@@ -245,6 +245,11 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
       <span class="vol-input"><input type="number" id="plein" inputmode="numeric" min="5" max="150" step="1" aria-labelledby="volLabel" aria-describedby="volHelp"> L</span>
       <small id="volHelp">Utilisé pour le coût complet et l'écart affiché en haut. Par défaut : 48 L (de 5 à 150 L).</small>
     </div>
+    <div class="vol">
+      <b id="consoLabel">Consommation du véhicule</b>
+      <span class="vol-input"><input type="number" id="conso" inputmode="decimal" min="2" max="25" step="0.1" aria-labelledby="consoLabel" aria-describedby="consoHelp"> L/100 km</span>
+      <small id="consoHelp">Utilisée pour le coût de l'aller-retour, donc aussi pour le coût complet. Par défaut : 4,9 L/100 km (de 2 à 25).</small>
+    </div>
   </section>
 
   <div class="tabs" role="tablist">
@@ -272,7 +277,7 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
     Prix : <a href="https://www.prix-carburants.gouv.fr" target="_blank" rel="noopener">prix-carburants.gouv.fr</a> (flux instantané). Noms : api.prix-carburants.2aaz.fr.<br>
     Prix déclarés par les stations. « Ancien » = prix non mis à jour depuis plus de 3 jours.<br>
     Position GPS : nom de commune via adresse.data.gouv.fr.<br>
-    Aller-retour = 2 × distance × (4,9 L / 100) × prix de la station, majoré de 30 % (distance à vol d'oiseau).<br>
+    Aller-retour = 2 × distance × (<span id="consoFoot">4,9</span> L / 100) × prix de la station, majoré de 30 % (distance à vol d'oiseau).<br>
     Coût complet = <span id="pleinFoot">48</span> L × (prix station − prix le plus bas du carburant dans le rayon) + aller-retour.
   </p>
 </main>
@@ -287,7 +292,7 @@ const PLACES = {
 };
 let HOME = PLACES.spdp;   // point de référence courant (commune choisie ou position GPS)
 const API = "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/prix-des-carburants-en-france-flux-instantane-v2/records";
-const CONSO = 4.9; // litres / 100 km
+const CONSO_DEFAUT = 4.9, CONSO_MIN = 2, CONSO_MAX = 25; // litres / 100 km, modifiable dans les paramètres
 const NAMES_API ="https://api.prix-carburants.2aaz.fr/station/";
 const FUELS = [
   { k: "gazole", label: "Gazole" }, { k: "e10", label: "SP95-E10" }, { k: "sp98", label: "SP98" },
@@ -311,6 +316,7 @@ const state = {
   tab: store.get("tab", "near"),
   place: store.get("place", "spdp"),     // clé de PLACES ou "gps"
   plein: store.get("plein", 48),          // volume du plein en litres (coût complet, écart)
+  conso: store.get("conso", CONSO_DEFAUT), // consommation en L/100 km (aller-retour)
   gpsAllowed: store.get("gpsAllowed", store.get("place", "spdp") === "gps"),
   data: store.get("cache", null),        // { at, radius, place, rows }
   favRows: store.get("favCache", {}),    // id -> ligne brute (favorites hors rayon)
@@ -505,7 +511,7 @@ const ROUTE_FACTOR = 1.3; // majoration de 30 % (distance routière vs vol d'ois
 // Coût aller-retour = 2 × distance × (consommation / 100) × prix de la station × 1,3
 function tripCost(dist, price) {
   if (dist == null || price == null) return null;
-  return 2 * dist * (CONSO / 100) * price * ROUTE_FACTOR;
+  return 2 * dist * (state.conso / 100) * price * ROUTE_FACTOR;
 }
 const PLEIN_DEFAUT = 48, PLEIN_MIN = 5, PLEIN_MAX = 150; // litres, modifiable dans les paramètres
 // Coût complet = surcoût d'un plein (state.plein litres) vs la station la moins chère + coût aller-retour
@@ -539,6 +545,8 @@ function render() {
   if (document.activeElement !== $("plein")) $("plein").value = state.plein;
   $("sSaveLabel").textContent = `Écart ${state.plein} L`;
   $("pleinFoot").textContent = state.plein;
+  if (document.activeElement !== $("conso")) $("conso").value = state.conso;
+  $("consoFoot").textContent = String(state.conso).replace(".", ",");
   const gp = store.get("gpsPos", null);
   $("gpsState").textContent = !state.gpsAllowed ? "Localisation désactivée · aucune position enregistrée."
     : gp ? `Dernière position enregistrée : autour de ${gp.city || "commune inconnue"}.` : "Aucune position enregistrée pour l'instant.";
@@ -707,19 +715,26 @@ $("settings").addEventListener("click", e => {
   if (e.target.id === "gpsAllowed" || e.target.closest(".vol-input")) return;
   toggleSettings(false); $("gear").focus();
 });
-// Volume du plein : recalcul immédiat pendant la saisie, valeur bornée à la validation
-function readPlein(final) {
-  const v = Math.round(parseFloat(String($("plein").value).replace(",", ".")));
-  if (!Number.isFinite(v)) { if (final) $("plein").value = state.plein; return; }
-  if (!final && (v < PLEIN_MIN || v > PLEIN_MAX)) return;
-  state.plein = Math.min(PLEIN_MAX, Math.max(PLEIN_MIN, v));
-  store.set("plein", state.plein);
-  if (final) $("plein").value = state.plein;
-  render();
+// Réglages numériques (volume du plein, consommation) : recalcul immédiat pendant la saisie,
+// valeur bornée et arrondie à la validation
+function bindNumber(key, min, max, decimals) {
+  const el = $(key), f = 10 ** decimals;
+  const read = final => {
+    const raw = parseFloat(String(el.value).replace(",", "."));
+    if (!Number.isFinite(raw)) { if (final) el.value = state[key]; return; }
+    const v = Math.round(raw * f) / f;
+    if (!final && (v < min || v > max)) return;
+    state[key] = Math.min(max, Math.max(min, v));
+    store.set(key, state[key]);
+    if (final) el.value = state[key];
+    render();
+  };
+  el.addEventListener("input", () => read(false));
+  el.addEventListener("change", () => read(true));
+  el.addEventListener("keydown", e => { if (e.key === "Enter") el.blur(); });
 }
-$("plein").addEventListener("input", () => readPlein(false));
-$("plein").addEventListener("change", () => readPlein(true));
-$("plein").addEventListener("keydown", e => { if (e.key === "Enter") $("plein").blur(); });
+bindNumber("plein", PLEIN_MIN, PLEIN_MAX, 0);
+bindNumber("conso", CONSO_MIN, CONSO_MAX, 1);
 $("gpsAllowed").addEventListener("change", e => {
   state.gpsAllowed = e.target.checked; store.set("gpsAllowed", state.gpsAllowed);
   if (!state.gpsAllowed) {
