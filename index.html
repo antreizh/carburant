@@ -80,10 +80,11 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
 .gear[aria-expanded="true"] { background: #ffffff1f; }
 
 /* Paramètres */
-.settings { background: var(--surface); border-radius: 14px; padding: 14px; display: grid; gap: 8px; }
-.settings h2 { margin: 0; font: 700 15px/1.2 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.check { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: start; cursor: pointer; }
-.check input { width: 20px; height: 20px; margin: 1px 0 0; accent-color: var(--ink); }
+.settings { background: var(--surface); border-radius: 14px; padding: 14px; display: grid; gap: 8px; cursor: pointer; }
+.settings h2 { margin: 0; display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font: 700 15px/1.2 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.close-hint { font: 500 11px/1 var(--font-body); letter-spacing: 0; text-transform: none; }
+.check { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; align-items: start; }
+.check input { width: 22px; height: 22px; margin: 0; accent-color: var(--ink); cursor: pointer; }
 .check b { font-weight: 600; }
 .check small { grid-column: 2; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .gps-state { font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 8px; }
@@ -213,12 +214,12 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
   </section>
 
   <section class="settings" id="settings" hidden aria-label="Paramètres">
-    <h2>Paramètres</h2>
-    <label class="check" for="gpsAllowed">
-      <input type="checkbox" id="gpsAllowed">
-      <b>Autoriser la localisation GPS</b>
-      <small>Active le choix « Ma position (GPS) ». Décoché, la dernière position enregistrée et les prix chargés autour d'elle sont effacés.</small>
-    </label>
+    <h2>Paramètres <span class="close-hint">Toucher pour fermer</span></h2>
+    <div class="check">
+      <input type="checkbox" id="gpsAllowed" aria-labelledby="gpsLabel" aria-describedby="gpsHelp">
+      <b id="gpsLabel">Autoriser la localisation GPS</b>
+      <small id="gpsHelp">Active le choix « Ma position (GPS) ». Décoché, la dernière position enregistrée et les prix chargés autour d'elle sont effacés.</small>
+    </div>
     <div class="gps-state" id="gpsState"></div>
   </section>
 
@@ -649,9 +650,14 @@ $("radius").addEventListener("click", e => {
   state.radius = +b.dataset.v; store.set("radius", state.radius);
   render(); if (!state.data || state.data.radius < state.radius) load();
 });
-$("gear").addEventListener("click", () => {
-  const open = $("settings").hidden;
+function toggleSettings(open) {
   $("settings").hidden = !open; $("gear").setAttribute("aria-expanded", open);
+}
+$("gear").addEventListener("click", () => toggleSettings($("settings").hidden));
+// Un clic n'importe où sur le panneau le referme ; seule la case à cocher GPS change le réglage
+$("settings").addEventListener("click", e => {
+  if (e.target.id === "gpsAllowed") return;
+  toggleSettings(false); $("gear").focus();
 });
 $("gpsAllowed").addEventListener("change", e => {
   state.gpsAllowed = e.target.checked; store.set("gpsAllowed", state.gpsAllowed);
