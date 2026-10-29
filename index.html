@@ -117,6 +117,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 .st-meta .addr { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .st-price { text-align: right; font: 700 22px/1 var(--font-display); font-variant-numeric: tabular-nums; }
 .st-delta { text-align: right; font-size: 12px; font-variant-numeric: tabular-nums; }
+.trip { color: var(--ink); font-weight: 600; font-variant-numeric: tabular-nums; }
 .lo { color: var(--good); } .hi { color: var(--bad); } .mid { color: var(--muted); }
 .badge { font: 600 11px/1 var(--font-body); padding: 3px 6px; border-radius: 5px; text-transform: uppercase; letter-spacing: .04em; }
 .b-out { background: color-mix(in srgb, var(--bad) 15%, transparent); color: var(--bad); }
@@ -200,7 +201,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 
   <p class="foot">
     Prix : <a href="https://www.prix-carburants.gouv.fr" target="_blank" rel="noopener">prix-carburants.gouv.fr</a> (flux instantané). Noms : api.prix-carburants.2aaz.fr.<br>
-    Prix déclarés par les stations. « Ancien » = prix non mis à jour depuis plus de 3 jours.
+    Prix déclarés par les stations. « Ancien » = prix non mis à jour depuis plus de 3 jours.<br>
+    Aller-retour = 2 × distance × (4,9 L / 100) × prix de la station, majoré de 30 % (distance à vol d'oiseau).
   </p>
 </main>
 
@@ -209,7 +211,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 <script>
 const HOME = { lat: 48.6122, lon: 2.4945, name: "Saint-Pierre-du-Perray" };
 const API = "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/prix-des-carburants-en-france-flux-instantane-v2/records";
-const NAMES_API = "https://api.prix-carburants.2aaz.fr/station/";
+const CONSO = 4.9; // litres / 100 km
+const NAMES_API ="https://api.prix-carburants.2aaz.fr/station/";
 const FUELS = [
   { k: "gazole", label: "Gazole" }, { k: "e10", label: "SP95-E10" }, { k: "sp98", label: "SP98" },
   { k: "sp95", label: "SP95" }, { k: "e85", label: "E85" }, { k: "gplc", label: "GPLc" }
@@ -352,7 +355,18 @@ function deltaHtml(price, med, tag = "div", cls = "st-delta") {
   const d = price - med, c = d < -0.0005 ? "lo" : d > 0.0005 ? "hi" : "mid";
   return `<${tag} class="${cls} ${c}">${d > 0 ? "+" : d < 0 ? "−" : "±"}${Math.abs(d * 100).toFixed(1).replace(".", ",")} c vs médiane</${tag}>`;
 }
-const isFav = id => state.favIds.includes(id);
+const ROUTE_FACTOR = 1.3; // majoration de 30 % (distance routière vs vol d'oiseau)
+// Coût aller-retour = 2 × distance × (consommation / 100) × prix de la station × 1,3
+function tripCost(dist, price) {
+  if (dist == null || price == null) return null;
+  return 2 * dist * (CONSO / 100) * price * ROUTE_FACTOR;
+}
+function tripTxt(c) {
+  if (c == null) return "";
+  if (c > 0 && c < 0.005) return "< 0,01 €";
+  return c.toFixed(2).replace(".", ",") + " €";
+}
+const isFav = id =>state.favIds.includes(id);
 const favBtn = (id, name) => `<button class="fav" data-fav="${id}" aria-pressed="${isFav(id)}" aria-label="${isFav(id) ? "Retirer des favorites" : "Ajouter aux favorites"} : ${esc(name)}">${STAR}</button>`;
 
 function render() {
@@ -430,7 +444,7 @@ function renderList(sells, z, f) {
           <div class="brand">${brandHtml(s.brand)}</div>
           <div class="st-name">${esc(s.name)}</div>
           <div class="st-meta"><span class="addr">${esc(s.adresse)}, ${esc(s.ville)}</span></div>
-          <div class="st-meta"><span>${kmTxt(s.dist)}</span>${s.h24 ? "<span>24/24</span>" : ""}${off ? "" : `<span>${majLabel(s.maj)}</span>`}
+          <div class="st-meta"><span>${kmTxt(s.dist)}</span>${s.h24 ? "<span>24/24</span>" : ""}${off ? "" : `<span>${majLabel(s.maj)}</span><span class="trip">Aller-retour ${tripTxt(tripCost(s.dist, s.price))}</span>`}
             ${off ? '<span class="badge b-out">Rupture</span>' : ""}${old ? '<span class="badge b-old">Ancien</span>' : ""}</div>
         </div>
         <div>
@@ -459,7 +473,8 @@ function renderFavs(f) {
       const z = zoneStats(x.k);
       const sel = x.k === f.k ? " sel" : "";
       if (rt) return `<div class="tile out${sel}"><span class="tile-l">${x.label}</span><span class="tile-p">Rupture</span><span class="tile-d mid">${(m => m ? `depuis le ${m[3]}/${m[2]}` : "&nbsp;")((r[x.k + "_rupture_debut"] || "").match(/(\d{4})-(\d{2})-(\d{2})/))}</span></div>`;
-      return `<div class="tile${sel}"><span class="tile-l">${x.label}</span><span class="tile-p">${fmt(p)} €</span>${deltaHtml(p, z && z.med, "span", "tile-d").replace(" vs médiane", "")}</div>`;
+      const trip = tripCost(base.dist, p);
+      return `<div class="tile${sel}"><span class="tile-l">${x.label}</span><span class="tile-p">${fmt(p)} €</span>${deltaHtml(p, z && z.med, "span", "tile-d").replace(" vs médiane", "")}${trip != null ? `<span class="tile-d trip">A/R ${tripTxt(trip)}</span>` : ""}</div>`;
     }).join("");
     const majs = FUELS.map(x => r[x.k + "_maj"]).filter(Boolean).sort().pop();
     return `<article class="card">
