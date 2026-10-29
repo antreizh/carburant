@@ -191,7 +191,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
       <button data-v="5">5 km</button><button data-v="10">10 km</button><button data-v="15">15 km</button>
     </div>
     <div class="seg" id="sort" role="group" aria-label="Tri">
-      <button data-v="price">Prix</button><button data-v="dist">Distance</button>
+      <button data-v="price">Prix</button><button data-v="full">Coût complet</button><button data-v="dist">Distance</button>
     </div>
   </div>
 
@@ -202,7 +202,8 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
   <p class="foot">
     Prix : <a href="https://www.prix-carburants.gouv.fr" target="_blank" rel="noopener">prix-carburants.gouv.fr</a> (flux instantané). Noms : api.prix-carburants.2aaz.fr.<br>
     Prix déclarés par les stations. « Ancien » = prix non mis à jour depuis plus de 3 jours.<br>
-    Aller-retour = 2 × distance × (4,9 L / 100) × prix de la station, majoré de 30 % (distance à vol d'oiseau).
+    Aller-retour = 2 × distance × (4,9 L / 100) × prix de la station, majoré de 30 % (distance à vol d'oiseau).<br>
+    Coût complet = 58 L × (prix station − prix le plus bas du carburant dans le rayon) + aller-retour.
   </p>
 </main>
 
@@ -361,6 +362,13 @@ function tripCost(dist, price) {
   if (dist == null || price == null) return null;
   return 2 * dist * (CONSO / 100) * price * ROUTE_FACTOR;
 }
+const PLEIN = 58; // litres
+// Coût complet = surcoût d'un plein de 58 L vs la station la moins chère + coût aller-retour
+function fullCost(dist, price, best) {
+  const trip = tripCost(dist, price);
+  if (trip == null || best == null) return null;
+  return PLEIN * (price - best) + trip;
+}
 function tripTxt(c) {
   if (c == null) return "";
   if (c > 0 && c < 0.005) return "< 0,01 €";
@@ -426,10 +434,13 @@ function render() {
 }
 
 function renderList(sells, z, f) {
+  for (const s of sells) s.full = s.price != null && !s.rupt ? fullCost(s.dist, s.price, z && z.min) : null;
   const list = sells.slice().sort((a, b) => {
     const ao = a.price == null || a.rupt, bo = b.price == null || b.rupt;
     if (ao !== bo) return ao ? 1 : -1;
-    return state.sort === "dist" ? a.dist - b.dist : (a.price - b.price || a.dist - b.dist);
+    if (state.sort === "dist") return a.dist - b.dist;
+    if (state.sort === "full") return a.full - b.full || a.dist - b.dist;
+    return a.price - b.price || a.dist - b.dist;
   });
   if (!list.length) { $("list").innerHTML = `<div class="empty">Aucune station ne distribue du ${esc(f.label)} dans ce rayon.</div>`; return; }
   const span = z ? Math.max(0.001, z.max - z.min) : 1;
@@ -444,7 +455,7 @@ function renderList(sells, z, f) {
           <div class="brand">${brandHtml(s.brand)}</div>
           <div class="st-name">${esc(s.name)}</div>
           <div class="st-meta"><span class="addr">${esc(s.adresse)}, ${esc(s.ville)}</span></div>
-          <div class="st-meta"><span>${kmTxt(s.dist)}</span>${s.h24 ? "<span>24/24</span>" : ""}${off ? "" : `<span>${majLabel(s.maj)}</span><span class="trip">Aller-retour ${tripTxt(tripCost(s.dist, s.price))}</span>`}
+          <div class="st-meta"><span>${kmTxt(s.dist)}</span>${s.h24 ? "<span>24/24</span>" : ""}${off ? "" : `<span>${majLabel(s.maj)}</span><span>Aller-retour ${tripTxt(tripCost(s.dist, s.price))}</span><span class="trip">Coût complet ${tripTxt(s.full)}</span>`}
             ${off ? '<span class="badge b-out">Rupture</span>' : ""}${old ? '<span class="badge b-old">Ancien</span>' : ""}</div>
         </div>
         <div>
@@ -474,7 +485,7 @@ function renderFavs(f) {
       const sel = x.k === f.k ? " sel" : "";
       if (rt) return `<div class="tile out${sel}"><span class="tile-l">${x.label}</span><span class="tile-p">Rupture</span><span class="tile-d mid">${(m => m ? `depuis le ${m[3]}/${m[2]}` : "&nbsp;")((r[x.k + "_rupture_debut"] || "").match(/(\d{4})-(\d{2})-(\d{2})/))}</span></div>`;
       const trip = tripCost(base.dist, p);
-      return `<div class="tile${sel}"><span class="tile-l">${x.label}</span><span class="tile-p">${fmt(p)} €</span>${deltaHtml(p, z && z.med, "span", "tile-d").replace(" vs médiane", "")}${trip != null ? `<span class="tile-d trip">A/R ${tripTxt(trip)}</span>` : ""}</div>`;
+      return `<div class="tile${sel}"><span class="tile-l">${x.label}</span><span class="tile-p">${fmt(p)} €</span>${deltaHtml(p, z && z.med, "span", "tile-d").replace(" vs médiane", "")}${trip != null ? `<span class="tile-d">A/R ${tripTxt(trip)}</span>` : ""}${z ? `<span class="tile-d trip">Complet ${tripTxt(fullCost(base.dist, p, z.min))}</span>` : ""}</div>`;
     }).join("");
     const majs = FUELS.map(x => r[x.k + "_maj"]).filter(Boolean).sort().pop();
     return `<article class="card">
