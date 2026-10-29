@@ -1,6 +1,6 @@
 // Réseau d'abord pour l'application (toujours la dernière version),
 // cache en secours hors connexion. Les appels à l'API de prix ne sont pas interceptés.
-const CACHE = "carburant-v4";
+const CACHE = "plein-eco-v5";
 const SHELL = ["./", "index.html", "names.js", "logos.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-180.png"];
 
 self.addEventListener("install", e => {

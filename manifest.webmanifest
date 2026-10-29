@@ -1,7 +1,7 @@
 {
-  "name": "Carburant Saint-Pierre-du-Perray",
-  "short_name": "Carburant",
-  "description": "Prix et disponibilité du carburant autour de Saint-Pierre-du-Perray (91280).",
+  "name": "Plein Éco",
+  "short_name": "Plein Éco",
+  "description": "Prix, disponibilité et coût complet du carburant dans les stations autour de vous.",
   "lang": "fr",
   "start_url": "./",
   "scope": "./",
