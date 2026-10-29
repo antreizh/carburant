@@ -241,6 +241,7 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
 
   <div class="alert" id="alert" hidden></div>
   <div class="list" id="list"><div class="empty">Chargement des prix…</div></div>
+  <div class="alert" id="ruptures" hidden></div>
   <div class="favs" id="favs" hidden></div>
 
   <p class="foot">
@@ -549,11 +550,14 @@ function render() {
     $("alert").innerHTML = "<strong>Position GPS indisponible.</strong> " +
       (store.get("gpsPos", null) ? "Dernière position connue utilisée." : "Prix affichés autour de Saint-Pierre-du-Perray.") +
       " Vérifiez que le téléphone autorise la localisation pour cette application.";
-  } else if (out.length && state.tab === "near") {
-    $("alert").hidden = false;
-    $("alert").innerHTML = `<strong>Rupture ${esc(f.label)}</strong> dans ${out.length} station${out.length > 1 ? "s" : ""} : ` +
-      out.sort((a, b) => a.dist - b.dist).map(s => esc(s.name) + (s.brand ? ` (${esc(s.brand)})` : "")).join(", ");
   } else $("alert").hidden = true;
+
+  // Ruptures : bloc placé après la liste des stations
+  $("ruptures").hidden = !(out.length && state.tab === "near");
+  if (!$("ruptures").hidden) {
+    $("ruptures").innerHTML = `<strong>Rupture ${esc(f.label)}</strong> dans ${out.length} station${out.length > 1 ? "s" : ""} : ` +
+      out.sort((a, b) => a.dist - b.dist).map(s => esc(s.name) + (s.brand ? ` (${esc(s.brand)})` : "")).join(", ");
+  }
 
   if (state.tab === "near") renderList(sells, z, f);
   else renderFavs(f);
