@@ -61,6 +61,13 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 .totem-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .place { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 8px; min-width: 0; }
 .place-name { font: 700 22px/1.1 var(--font-display); letter-spacing: .02em; color: var(--city-totem); }
+select.place-name {
+  appearance: none; -webkit-appearance: none; background: transparent; border: 0; border-radius: 6px; padding: 0 22px 0 0; max-width: 100%; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%237cc4ff' stroke-width='2' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 4px center;
+}
+select.place-name:focus-visible { outline: 2px solid var(--led); outline-offset: 2px; }
+select.place-name option { color: #15191e; background: #fff; font: 500 16px var(--font-body); }
 .place-radius { font: 600 13px/1 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--totem-ink); opacity: .7; }
 .refresh { background: none; border: 1px solid #ffffff2e; border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--totem-ink); display: inline-flex; gap: 6px; align-items: center; }
 .refresh.spin svg { animation: spin 1s linear infinite; }
@@ -156,7 +163,15 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 <main class="wrap">
   <section class="totem" aria-live="polite">
     <div class="totem-top">
-      <div class="place"><span class="place-name">Saint-Pierre-du-Perray</span><span class="place-radius" id="place">rayon 10 km</span></div>
+      <div class="place">
+        <select class="place-name" id="placeSel" aria-label="Commune de référence">
+          <option value="spdp">Saint-Pierre-du-Perray</option>
+          <option value="chateaulin">Châteaulin</option>
+          <option value="corny">Corny-sur-Moselle</option>
+          <option value="gps">Ma position (GPS)</option>
+        </select>
+        <span class="place-radius" id="place">rayon 10 km</span>
+      </div>
       <button class="refresh" id="refresh" aria-label="Actualiser">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>
         <span id="stamp">…</span>
@@ -202,6 +217,7 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
   <p class="foot">
     Prix : <a href="https://www.prix-carburants.gouv.fr" target="_blank" rel="noopener">prix-carburants.gouv.fr</a> (flux instantané). Noms : api.prix-carburants.2aaz.fr.<br>
     Prix déclarés par les stations. « Ancien » = prix non mis à jour depuis plus de 3 jours.<br>
+    Position GPS : nom de commune via adresse.data.gouv.fr.<br>
     Aller-retour = 2 × distance × (4,9 L / 100) × prix de la station, majoré de 30 % (distance à vol d'oiseau).<br>
     Coût complet = 58 L × (prix station − prix le plus bas du carburant dans le rayon) + aller-retour.
   </p>
@@ -210,7 +226,12 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 <script src="names.js"></script>
 <script src="logos.js"></script>
 <script>
-const HOME = { lat: 48.6122, lon: 2.4945, name: "Saint-Pierre-du-Perray" };
+const PLACES = {
+  spdp: { lat: 48.6122, lon: 2.4945, name: "Saint-Pierre-du-Perray" },
+  chateaulin: { lat: 48.1967, lon: -4.0900, name: "Châteaulin" },
+  corny: { lat: 49.0353, lon: 6.0603, name: "Corny-sur-Moselle" }
+};
+let HOME = PLACES.spdp;   // point de référence courant (commune choisie ou position GPS)
 const API = "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/prix-des-carburants-en-france-flux-instantane-v2/records";
 const CONSO = 4.9; // litres / 100 km
 const NAMES_API ="https://api.prix-carburants.2aaz.fr/station/";
@@ -232,12 +253,15 @@ const state = {
   sort: store.get("sort", "price"),
   favIds: store.get("favs", []),
   tab: store.get("tab", "near"),
-  data: store.get("cache", null),        // { at, radius, rows }
+  place: store.get("place", "spdp"),     // clé de PLACES ou "gps"
+  data: store.get("cache", null),        // { at, radius, place, rows }
   favRows: store.get("favCache", {}),    // id -> ligne brute (favorites hors rayon)
   names: Object.assign({}, window.STATION_NAMES || {}, store.get("names", {})),
   loading: false
 };
 if (!state.favIds.length && state.tab === "fav") state.tab = "near";
+if (!PLACES[state.place] && state.place !== "gps") state.place = "spdp";
+if (state.data && (state.data.place || "spdp") !== state.place) state.data = null;   // cache d'une autre commune
 
 const $ = id => document.getElementById(id);
 const fmt = p => p.toFixed(3).replace(".", ",");
@@ -290,26 +314,59 @@ function brandHtml(brand) {
 }
 
 async function fetchMissingNames(ids) {
-  const missing = ids.filter(id => !state.names[id]).slice(0, 15);
+  const missing = [...new Set(ids)].filter(id => !state.names[id]).slice(0, 60);
   if (!missing.length) return;
   const extra = store.get("names", {});
-  await Promise.all(missing.map(async id => {
-    try {
-      const r = await fetch(NAMES_API + id, { headers: { Accept: "application/json" } });
-      if (!r.ok) return;
-      const j = await r.json();
-      state.names[id] = extra[id] = { n: j.name || "", b: (j.Brand && j.Brand.name) || "" };
-    } catch {}
-  }));
+  for (let i = 0; i < missing.length; i += 8) {   // par lots de 8 pour ménager l'API
+    if (!isOpen()) break;                          // widget fermé : on arrête
+    await Promise.all(missing.slice(i, i + 8).map(async id => {
+      try {
+        const r = await fetch(NAMES_API + id, { headers: { Accept: "application/json" } });
+        if (!r.ok) return;
+        const j = await r.json();
+        state.names[id] = extra[id] = { n: j.name || "", b: (j.Brand && j.Brand.name) || "" };
+      } catch {}
+    }));
+  }
   store.set("names", extra);
   render();
 }
 
-async function query(where) {
+// Le widget n'interroge le GPS et les API que lorsqu'il est ouvert à l'écran.
+const isOpen = () => document.visibilityState === "visible";
+const abortErr = () => Object.assign(new Error("closed"), { name: "AbortError" });
+let loadCtrl = null;   // annule le chargement en cours quand le widget est fermé
+
+// Position GPS du moment + nom de la commune (Base Adresse Nationale)
+function getPosition(signal) {
+  return new Promise((ok, ko) => {
+    if (!navigator.geolocation) return ko(new Error("unsupported"));
+    signal.addEventListener("abort", () => ko(abortErr()), { once: true });
+    navigator.geolocation.getCurrentPosition(p => signal.aborted ? ko(abortErr()) : ok(p.coords), ko,
+      { enableHighAccuracy: false, timeout: 12000, maximumAge: 60000 });
+  });
+}
+async function locate(signal) {
+  const c = await getPosition(signal);
+  const pos = { lat: +c.latitude.toFixed(5), lon: +c.longitude.toFixed(5), name: "Ma position", city: "" };
+  try {
+    const r = await fetch(`https://api-adresse.data.gouv.fr/reverse/?lon=${pos.lon}&lat=${pos.lat}&limit=1`, { signal });
+    const j = await r.json();
+    const p = j.features && j.features[0] && j.features[0].properties;
+    if (p) pos.city = p.city || p.name || "";
+  } catch (e) { if (e.name === "AbortError") throw e; }
+  store.set("gpsPos", pos);
+  return pos;
+}
+function resolveHome() {
+  HOME = state.place === "gps" ? store.get("gpsPos", null) || PLACES.spdp : PLACES[state.place] || PLACES.spdp;
+}
+
+async function query(where, signal) {
   let rows = [], offset = 0, total = Infinity;
   while (offset < total && offset < 300) {
     const q = new URLSearchParams({ where, select: SELECT, limit: "100", offset: String(offset) });
-    const r = await fetch(API + "?" + q, { cache: "no-store" });
+    const r = await fetch(API + "?" + q, { cache: "no-store", signal });
     if (!r.ok) throw new Error("HTTP " + r.status);
     const j = await r.json();
     total = j.total_count; rows = rows.concat(j.results); offset += 100;
@@ -318,18 +375,38 @@ async function query(where) {
 }
 
 async function load() {
-  if (state.loading) return;
-  state.loading = true; $("refresh").classList.add("spin"); $("stamp").textContent = "Actualisation…";
-  let ok = true;
+  if (!isOpen()) { state.pending = true; return; }       // widget fermé : chargement reporté à l'ouverture
+  if (state.loading) { state.reload = true; return; }   // relancé à la fin du chargement en cours
+  state.loading = true; state.reload = false; state.pending = false;
+  const ctrl = loadCtrl = new AbortController(), signal = ctrl.signal;
+  $("refresh").classList.add("spin"); $("stamp").textContent = "Actualisation…";
+  const place = state.place;
+  let ok = true, aborted = false;
+  state.gpsError = false;
   try {
-    const near = query(`within_distance(geom, geom'POINT(${HOME.lon} ${HOME.lat})', ${state.radius}km)`);
-    const favs = state.favIds.length ? query(state.favIds.map(id => `id=${+id}`).join(" or ")) : Promise.resolve([]);
+    if (place === "gps") {
+      $("stamp").textContent = "Localisation…";
+      try { HOME = await locate(signal); }
+      catch (e) { if (e.name === "AbortError") throw e; state.gpsError = true; resolveHome(); }
+      $("stamp").textContent = "Actualisation…";
+    }
+    const near = query(`within_distance(geom, geom'POINT(${HOME.lon} ${HOME.lat})', ${state.radius}km)`, signal);
+    const favs = state.favIds.length ? query(state.favIds.map(id => `id=${+id}`).join(" or "), signal) : Promise.resolve([]);
     const [rows, favRows] = await Promise.all([near, favs]);
-    state.data = { at: Date.now(), radius: state.radius, rows };
+    if (place !== state.place) throw new Error("stale");   // la commune a changé entre-temps
+    state.data = { at: Date.now(), radius: state.radius, place, rows };
     state.favRows = Object.fromEntries(favRows.map(r => [r.id, r]));
     store.set("cache", state.data); store.set("favCache", state.favRows);
-  } catch (e) { ok = false; }
-  state.loading = false; $("refresh").classList.remove("spin");
+  } catch (e) {
+    aborted = e.name === "AbortError" || signal.aborted;
+    ok = e.message === "stale";
+  }
+  state.loading = false; loadCtrl = null; $("refresh").classList.remove("spin");
+  if (aborted) {                                          // fermé pendant le chargement : rien n'est conservé
+    state.pending = true; state.gpsError = false; resolveHome();
+    $("stamp").textContent = "En pause"; render(); return;
+  }
+  if (state.reload || place !== state.place) { resolveHome(); return load(); }
   state.netError = !ok;
   render();
   if (state.data) fetchMissingNames(state.data.rows.map(r => r.id).concat(state.favIds));
@@ -351,11 +428,6 @@ function zoneStats(fk) {
   const med = p.length % 2 ? p[(p.length - 1) / 2] : (p[p.length / 2 - 1] + p[p.length / 2]) / 2;
   return { med, min: p[0], max: p[p.length - 1], n: p.length };
 }
-function deltaHtml(price, med, tag = "div", cls = "st-delta") {
-  if (med == null) return "";
-  const d = price - med, c = d < -0.0005 ? "lo" : d > 0.0005 ? "hi" : "mid";
-  return `<${tag} class="${cls} ${c}">${d > 0 ? "+" : d < 0 ? "−" : "±"}${Math.abs(d * 100).toFixed(1).replace(".", ",")} c vs médiane</${tag}>`;
-}
 const ROUTE_FACTOR = 1.3; // majoration de 30 % (distance routière vs vol d'oiseau)
 // Coût aller-retour = 2 × distance × (consommation / 100) × prix de la station × 1,3
 function tripCost(dist, price) {
@@ -369,6 +441,7 @@ function fullCost(dist, price, best) {
   if (trip == null || best == null) return null;
   return PLEIN * (price - best) + trip;
 }
+const fullTxt = c => (c != null && c >= 0.005 ? "+" : "") + tripTxt(c);
 function tripTxt(c) {
   if (c == null) return "";
   if (c > 0 && c < 0.005) return "< 0,01 €";
@@ -385,7 +458,9 @@ function render() {
   $("tabNear").setAttribute("aria-selected", state.tab === "near");
   $("tabFav").setAttribute("aria-selected", state.tab === "fav");
   $("favCount").textContent = state.favIds.length ? "(" + state.favIds.length + ")" : "";
-  $("place").textContent = `rayon ${state.radius} km`;
+  $("placeSel").value = state.place;
+  $("place").textContent = `rayon ${state.radius} km` +
+    (state.place === "gps" && HOME.city ? ` · autour de ${HOME.city}` : "");
   $("nearCtrl").hidden = $("list").hidden = state.tab !== "near";
   $("favs").hidden = state.tab !== "fav";
 
@@ -423,6 +498,11 @@ function render() {
   if (state.netError) {
     $("alert").hidden = false;
     $("alert").innerHTML = "<strong>Pas de connexion au flux officiel.</strong> Affichage des derniers prix enregistrés.";
+  } else if (state.gpsError) {
+    $("alert").hidden = false;
+    $("alert").innerHTML = "<strong>Position GPS indisponible.</strong> " +
+      (store.get("gpsPos", null) ? "Dernière position connue utilisée." : "Prix affichés autour de Saint-Pierre-du-Perray.") +
+      " Autorisez la localisation pour cette application dans les réglages du téléphone.";
   } else if (out.length && state.tab === "near") {
     $("alert").hidden = false;
     $("alert").innerHTML = `<strong>Rupture ${esc(f.label)}</strong> dans ${out.length} station${out.length > 1 ? "s" : ""} : ` +
@@ -455,13 +535,11 @@ function renderList(sells, z, f) {
           <div class="brand">${brandHtml(s.brand)}</div>
           <div class="st-name">${esc(s.name)}</div>
           <div class="st-meta"><span class="addr">${esc(s.adresse)}, ${esc(s.ville)}</span></div>
-          <div class="st-meta"><span>${kmTxt(s.dist)}</span>${s.h24 ? "<span>24/24</span>" : ""}${off ? "" : `<span>${majLabel(s.maj)}</span><span>Aller-retour ${tripTxt(tripCost(s.dist, s.price))}</span><span class="trip">Coût complet ${tripTxt(s.full)}</span>`}
+          <div class="st-meta"><span>${kmTxt(s.dist)}</span>${s.h24 ? "<span>24/24</span>" : ""}${off ? "" : `<span>${majLabel(s.maj)}</span><span>Aller-retour ${tripTxt(tripCost(s.dist, s.price))}</span><span class="trip">Coût complet ${fullTxt(s.full)}</span>`}
             ${off ? '<span class="badge b-out">Rupture</span>' : ""}${old ? '<span class="badge b-old">Ancien</span>' : ""}</div>
         </div>
         <div>
-          <div class="st-price">${off ? "Indispo." : fmt(s.price)}</div>
-          ${off ? "" : deltaHtml(s.price, z && z.med).replace(" vs médiane", "")}
-        </div>
+          <div class="st-price">${off ? "Indispo." : fmt(s.price)}</div>        </div>
         ${off ? "" : `<div class="bar"><i class="${s.price === z.min ? "top" : ""}" style="width:${w.toFixed(0)}%"></i></div>`}
       </a>
     </div>`;
@@ -485,7 +563,7 @@ function renderFavs(f) {
       const sel = x.k === f.k ? " sel" : "";
       if (rt) return `<div class="tile out${sel}"><span class="tile-l">${x.label}</span><span class="tile-p">Rupture</span><span class="tile-d mid">${(m => m ? `depuis le ${m[3]}/${m[2]}` : "&nbsp;")((r[x.k + "_rupture_debut"] || "").match(/(\d{4})-(\d{2})-(\d{2})/))}</span></div>`;
       const trip = tripCost(base.dist, p);
-      return `<div class="tile${sel}"><span class="tile-l">${x.label}</span><span class="tile-p">${fmt(p)} €</span>${deltaHtml(p, z && z.med, "span", "tile-d").replace(" vs médiane", "")}${trip != null ? `<span class="tile-d">A/R ${tripTxt(trip)}</span>` : ""}${z ? `<span class="tile-d trip">Complet ${tripTxt(fullCost(base.dist, p, z.min))}</span>` : ""}</div>`;
+      return `<div class="tile${sel}"><span class="tile-l">${x.label}</span><span class="tile-p">${fmt(p)} €</span>${trip != null ? `<span class="tile-d">A/R ${tripTxt(trip)}</span>` : ""}${z ? `<span class="tile-d trip">Complet ${fullTxt(fullCost(base.dist, p, z.min))}</span>` : ""}</div>`;
     }).join("");
     const majs = FUELS.map(x => r[x.k + "_maj"]).filter(Boolean).sort().pop();
     return `<article class="card">
@@ -498,7 +576,7 @@ function renderFavs(f) {
         ${favBtn(id, base.name)}
       </div>
       <div class="tiles">${tiles || '<span class="card-sub">Aucun prix déclaré.</span>'}</div>
-      <div class="card-foot"><span>${majLabel(majs)} · écart vs médiane de la zone (${state.radius} km)</span>
+      <div class="card-foot"><span>${majLabel(majs)}</span>
         <a class="go" href="https://www.google.com/maps/dir/?api=1&destination=${base.lat},${base.lon}" target="_blank" rel="noopener">Itinéraire</a></div>
     </article>`;
   }).join("");
@@ -526,16 +604,28 @@ $("radius").addEventListener("click", e => {
   state.radius = +b.dataset.v; store.set("radius", state.radius);
   render(); if (!state.data || state.data.radius < state.radius) load();
 });
+$("placeSel").addEventListener("change", e => {
+  state.place = e.target.value; store.set("place", state.place);
+  resolveHome(); state.data = null; state.gpsError = false;
+  $("list").innerHTML = `<div class="empty">Chargement des prix…</div>`;
+  $("bestWhere").textContent = "Chargement…"; $("bestBrand").textContent = ""; $("bestSub").innerHTML = "&nbsp;";
+  render(); load();
+});
 $("sort").addEventListener("click", e => {
   const b = e.target.closest("[data-v]"); if (!b) return;
   state.sort = b.dataset.v; store.set("sort", state.sort); render();
 });
 $("refresh").addEventListener("click", load);
-// Actualisation à chaque ouverture / retour au premier plan (> 1 min)
+// Actualisation à chaque ouverture / retour au premier plan (> 1 min).
+// À la fermeture (arrière-plan, écran verrouillé, app quittée) : GPS et requêtes en cours sont annulés.
+const closeWidget = () => { if (loadCtrl) loadCtrl.abort(); };
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && (!state.data || Date.now() - state.data.at > 60e3)) load();
+  if (!isOpen()) return closeWidget();
+  if (state.pending || !state.data || Date.now() - state.data.at > 60e3) load();
 });
+window.addEventListener("pagehide", closeWidget);
 
+resolveHome();
 render();
 load();
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
