@@ -148,6 +148,11 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
 .fav[aria-pressed="true"] svg { fill: currentColor; }
 .st-link { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 11px 14px 11px 8px; text-decoration: none; color: inherit; min-width: 0; cursor: pointer; }
 .st-link:focus-visible { outline: 2px solid var(--led); outline-offset: -2px; }
+.st-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.mini-go { display: inline-flex; align-items: center; gap: 3px; padding: 3px 7px 3px 6px; border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font-size: 10.5px; font-weight: 600; letter-spacing: -.01em; text-decoration: none; white-space: nowrap; }
+.mini-go svg { width: 10px; height: 10px; flex: none; }
+.mini-go:active { background: var(--chip); }
 
 /* Vue station : fiche qui remonte du bas de l'écran */
 .sheet-back { position: fixed; inset: 0; z-index: 50; background: #0009; display: flex; align-items: flex-end; justify-content: center; }
@@ -180,7 +185,7 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
 .totem .brand { color: var(--led); font-size: 12px; margin-top: 4px; }
 .totem .logo { width: 22px; height: 22px; box-shadow: none; }
 .card .logo { width: 22px; height: 22px; }
-.st-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-name { font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
 .st-meta { font-size: 12px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
 .st-meta .addr { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
 .st-price { text-align: right; font: 700 22px/1 var(--font-display); font-variant-numeric: tabular-nums; }
@@ -568,6 +573,15 @@ async function loadRoads(rows, place, signal) {
   if (place !== "gps") store.set("road", state.road);      // jamais conservé pour une position GPS
   render();
 }
+// Lien d'itinéraire Google Maps vers la station, en mode voiture.
+// Destination lisible : marque + nom + adresse complète (plutôt que des coordonnées GPS).
+function mapsUrl(s) {
+  const plain = t => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const first = (s.brand || "").split(/[\s.]/).filter(Boolean)[0] || "";
+  const brand = first && !plain(s.name).includes(plain(first)) ? s.brand : "";   // pas de « Carrefour Carrefour »
+  const label = [[brand, s.name].filter(Boolean).join(" "), s.adresse, `${s.cp} ${s.ville}`.trim()].filter(Boolean).join(", ");
+  return "https://www.google.com/maps/dir/?api=1&travelmode=driving&destination=" + encodeURIComponent(label);
+}
 function distTxt(s) {
   if (s.dist == null) return "";
   if (!s.road) return `≈ ${kmTxt(s.dist)} à vol d'oiseau`;
@@ -579,7 +593,7 @@ function station(r, fk) {
   const crow = g.lat ? km(HOME, g) : null;
   const rd = state.road && state.road.key === roadKey() ? state.road.d[r.id] : null;
   return {
-    id: r.id, ville: title(r.ville), adresse: title(r.adresse), lat: g.lat, lon: g.lon,
+    id: r.id, ville: title(r.ville), adresse: title(r.adresse), cp: r.cp || "", lat: g.lat, lon: g.lon,
     crow, road: !!rd, min: rd ? rd.min : null,
     dist: rd ? rd.km : crow,                                // distance affichée et utilisée pour le tri
     tripKm: rd ? rd.km : crow,                              // à défaut de route : vol d'oiseau
@@ -736,7 +750,7 @@ function renderSheet() {
     </div>
     <div class="fuel-list">${rows}</div>
     <div class="sheet-actions">
-      <a class="go" href="https://www.google.com/maps/dir/?api=1&destination=${s.lat},${s.lon}" target="_blank" rel="noopener">Itinéraire</a>
+      <a class="go" href="${mapsUrl(s)}" target="_blank" rel="noopener">Itinéraire</a>
     </div>`;
 }
 let sheetReturn = null;
@@ -754,7 +768,7 @@ $("sheetBack").addEventListener("click", e => {
 });
 document.addEventListener("keydown", e => {
   if (e.key === "Escape" && state.openId != null) closeSheet();
-  const op = e.target.closest && e.target.closest("[data-open]");
+  const op = e.target.closest && !e.target.closest("a") && e.target.closest("[data-open]");
   if (op && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openSheet(+op.dataset.open, op); }
 });
 
@@ -783,8 +797,11 @@ function renderList(sells, z, f) {
           <div class="st-meta"><span>${distTxt(s)}</span>${s.h24 ? "<span>24/24</span>" : ""}${off ? "" : `<span>${majLabel(s.maj)}</span><span>Aller-retour ${tripTxt(tripCost(s.tripKm, s.price))}</span><span class="trip">Coût complet ${fullTxt(s.full)}</span>`}
             ${off ? `<span class="badge b-out">${s.rupt === "temporaire" ? "Rupture" + (r => r && r.depuis ? " depuis le " + r.depuis : "")(s.ruptures.find(x => x.k === f.k))
               : s.rupt === "definitive" ? "Rupture définitive" : "Rupture · non distribué"}</span>` : ""}${old ? '<span class="badge b-old">Ancien</span>' : ""}</div>        </div>
-        <div>
-          <div class="st-price">${off ? "RUPTURE" : fmt(s.price)}</div>        </div>
+        <div class="st-side">
+          <div class="st-price">${off ? "RUPTURE" : fmt(s.price)}</div>
+          <a class="mini-go" href="${mapsUrl(s)}" target="_blank" rel="noopener" aria-label="Itinéraire vers ${esc(s.name)}">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l18-8-8 18-2-8z"/></svg>Itinéraire</a>
+        </div>
         ${off ? "" : `<div class="bar"><i class="${s.price === z.min ? "top" : ""}" style="width:${w.toFixed(0)}%"></i></div>`}
       </div>
     </div>`;
@@ -823,7 +840,7 @@ function renderFavs(f) {
       </div>
       <div class="tiles">${tiles || '<span class="card-sub">Aucun prix déclaré.</span>'}</div>
       <div class="card-foot"><span>${majLabel(majs)}</span>
-        <a class="go" href="https://www.google.com/maps/dir/?api=1&destination=${base.lat},${base.lon}" target="_blank" rel="noopener">Itinéraire</a></div>
+        <a class="go" href="${mapsUrl(base)}" target="_blank" rel="noopener">Itinéraire</a></div>
     </article>`;
   }).join("");
 }
@@ -847,6 +864,7 @@ document.addEventListener("click", e => {
     }
     render(); return;
   }
+  if (e.target.closest(".mini-go")) return;   // lien Itinéraire : ne pas ouvrir la fiche
   const op = e.target.closest("[data-open]");
   if (op) { openSheet(+op.dataset.open, op); return; }
   const chip = e.target.closest("[data-k]");
