@@ -745,11 +745,12 @@ function render() {
     at.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 
   const all = d.rows.map(r => station(r, f.k)).filter(s => s.crow == null || s.crow <= state.radius + 0.3);   // rayon : à vol d'oiseau
-  const sells = all.filter(s => s.price != null || s.rupt === "temporaire");
+  // Stations retenues : carburant vendu ou en rupture temporaire (jamais en rupture définitive)
+  const sells = all.filter(s => s.rupt !== "definitive" && (s.price != null || s.rupt === "temporaire"));
   const avail = sells.filter(s => s.price != null && !s.rupt);
   const out = sells.filter(s => s.rupt === "temporaire");
   // Les favorites du rayon restent toujours dans la liste, même en rupture ou sans ce carburant
-  const shown = all.filter(s => sells.includes(s) || isFav(s.id));
+  const shown = sells;   // les favorites suivent la même règle : en rupture temporaire, elles restent en fin de liste
   const z = zoneStats(f.k);
 
   // Totem
@@ -812,7 +813,7 @@ function renderCalc(f, z, shown) {
     <h2 class="calc-title">Règles de calcul <span class="close-hint">Toucher pour fermer</span></h2>
     <section><h3>Stations retenues</h3>
       <p>Toutes les stations situées à moins de ${state.radius} km <b>à vol d'oiseau</b> de ${esc(place)} et qui distribuent le carburant choisi. Vos favorites du rayon restent toujours affichées.</p>
-      <p class="muted">Une station dont le carburant est en rupture (temporaire ou définitive) passe en fin de liste avec la mention RUPTURE.</p></section>
+      <p class="muted">Une station dont le carburant est en rupture temporaire passe en fin de liste avec la mention RUPTURE. Une station en rupture définitive de ce carburant (elle ne le vend plus) n'est pas retenue.</p></section>
     <section><h3>Distance et temps</h3>
       <p>Trajet le plus rapide <b>par la route en voiture</b> depuis ${esc(place)}, calculé par OSRM sur la carte OpenStreetMap, sans tenir compte du trafic.</p>
       <p class="muted">Si ce service ne répond pas, la distance à vol d'oiseau est utilisée et indiquée « ≈ … à vol d'oiseau ».</p></section>
@@ -834,7 +835,6 @@ function renderCalc(f, z, shown) {
       <ul>
         <li><b>Ancien</b> : prix non mis à jour depuis plus de 3 jours.</li>
         <li><b>Rupture depuis le…</b> : carburant momentanément épuisé.</li>
-        <li><b>Rupture définitive</b> : la station ne vend plus ce carburant.</li>
       </ul></section>
     <section><h3>Sources</h3>
       <p class="muted">Prix et ruptures : flux officiel prix-carburants.gouv.fr, rechargé à chaque ouverture. Noms et marques : api.prix-carburants.2aaz.fr. Itinéraires : OSRM / © contributeurs OpenStreetMap.</p></section>`;
@@ -852,10 +852,7 @@ function renderSheet() {
     const sel = x.k === state.fuel ? " sel" : "";
     if (rt === "temporaire") return `<div class="fuel-row out${sel}"><span class="fuel-name">${x.label}</span>
       <span class="fuel-info">Rupture temporaire${deb ? ` depuis le ${fullDate(deb)}` : ""}</span><span class="fuel-price">RUPTURE</span></div>`;
-    if (rt === "definitive") return `<div class="fuel-row out${sel}"><span class="fuel-name">${x.label}</span>
-      <span class="fuel-info">Rupture définitive${deb ? ` depuis le ${fullDate(deb)}` : ""}</span><span class="fuel-price">RUPTURE</span></div>`;
-    if (p == null) return `<div class="fuel-row none${sel}"><span class="fuel-name">${x.label}</span>
-      <span class="fuel-info">Non distribué par cette station</span><span class="fuel-price">—</span></div>`;
+    if (rt === "definitive" || p == null) return "";   // carburant arrêté ou jamais vendu : non affiché
     const z = zoneStats(x.k), trip = tripCost(s.tripKm, p), full = z ? fullCost(s.tripKm, p, z.min) : null;
     const best = z && Math.abs(p - z.min) < 0.0005;
     return `<div class="fuel-row${sel}"><span class="fuel-name">${x.label}</span>
@@ -945,7 +942,7 @@ function renderFavs(f) {
     const base = station(r, f.k);
     const tiles = FUELS.map(x => {
       const p = r[x.k + "_prix"], rt = r[x.k + "_rupture_type"];
-      if (p == null && rt !== "temporaire") return "";
+      if (rt === "definitive" || (p == null && rt !== "temporaire")) return "";   // arrêté ou non vendu
       const z = zoneStats(x.k);
       const sel = x.k === f.k ? " sel" : "";
       if (rt) return `<div class="tile out${sel}"><span class="tile-l">${x.label}</span><span class="tile-p">Rupture</span><span class="tile-d mid">${(m => m ? `depuis le ${m[3]}/${m[2]}` : "&nbsp;")((r[x.k + "_rupture_debut"] || "").match(/(\d{4})-(\d{2})-(\d{2})/))}</span></div>`;
