@@ -99,6 +99,13 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
 .vol { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; border-top: 1px solid var(--line); padding-top: 10px; }
 .vol small { grid-column: 1 / -1; color: var(--muted); font-size: 12px; line-height: 1.4; }
 .vol-input { display: inline-flex; align-items: center; gap: 6px; cursor: default; }
+.backup { display: grid; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
+.backup small { color: var(--muted); font-size: 12px; line-height: 1.4; }
+.backup-actions { display: flex; gap: 6px; flex-wrap: wrap; cursor: default; }
+.backup-actions button { border: 1px solid var(--line); background: var(--chip); color: var(--ink); border-radius: 8px; padding: 7px 12px; font-weight: 600; font-size: 13px; }
+.backup textarea { width: 100%; min-height: 54px; font: 12px/1.35 ui-monospace, Consolas, monospace; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); resize: vertical; word-break: break-all; }
+.backup-msg { font-size: 12px; font-weight: 600; color: var(--good); min-height: 1em; }
+.backup-msg.err { color: var(--bad); }
 .vol input { width: 64px; font: 600 16px var(--font-body); text-align: right; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font-variant-numeric: tabular-nums; }
 .best { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 8px; }
 .best > div { min-width: 0; }
@@ -251,6 +258,16 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
       <b id="consoLabel">Consommation du véhicule</b>
       <span class="vol-input"><input type="number" id="conso" inputmode="decimal" min="2" max="25" step="0.1" aria-labelledby="consoLabel" aria-describedby="consoHelp"> L/100 km</span>
       <small id="consoHelp">Utilisée pour le coût de l'aller-retour, donc aussi pour le coût complet. Par défaut : 4,9 L/100 km (de 2 à 25).</small>
+    </div>
+    <div class="backup">
+      <b>Sauvegarde des favorites</b>
+      <small>Le téléphone efface les favorites si l'application est désinstallée. Copiez ce code avant de réinstaller (dans une note, par exemple), puis collez-le ici et touchez « Restaurer ».</small>
+      <textarea id="backupCode" aria-label="Code de sauvegarde des favorites" spellcheck="false" autocomplete="off"></textarea>
+      <div class="backup-actions">
+        <button type="button" id="backupCopy">Copier le code</button>
+        <button type="button" id="backupRestore">Restaurer</button>
+      </div>
+      <div class="backup-msg" id="backupMsg" role="status"></div>
     </div>
   </section>
 
@@ -571,6 +588,8 @@ function render() {
   const sells = all.filter(s => s.price != null || s.rupt === "temporaire");
   const avail = sells.filter(s => s.price != null && !s.rupt);
   const out = sells.filter(s => s.rupt === "temporaire");
+  // Les favorites du rayon restent toujours dans la liste, même en rupture ou sans ce carburant
+  const shown = all.filter(s => sells.includes(s) || isFav(s.id));
   const z = zoneStats(f.k);
 
   // Totem
@@ -609,7 +628,7 @@ function render() {
       out.sort((a, b) => a.dist - b.dist).map(s => esc(s.name) + (s.brand ? ` (${esc(s.brand)})` : "")).join(", ");
   }
 
-  if (state.tab === "near") renderList(sells, z, f);
+  if (state.tab === "near") renderList(shown, z, f);
   else renderFavs(f);
 }
 
@@ -636,11 +655,12 @@ function renderList(sells, z, f) {
           <div class="st-name">${esc(s.name)}</div>
           <div class="st-meta"><span class="addr">${esc(s.adresse)}, ${esc(s.ville)}</span></div>
           <div class="st-meta"><span>${kmTxt(s.dist)}</span>${s.h24 ? "<span>24/24</span>" : ""}${off ? "" : `<span>${majLabel(s.maj)}</span><span>Aller-retour ${tripTxt(tripCost(s.dist, s.price))}</span><span class="trip">Coût complet ${fullTxt(s.full)}</span>`}
-            ${off ? `<span class="badge b-out">Rupture${(r => r && r.depuis ? " depuis le " + r.depuis : "")(s.ruptures.find(x => x.k === f.k))}</span>` : ""}${old ? '<span class="badge b-old">Ancien</span>' : ""}</div>
+            ${off ? `<span class="badge b-out">${s.rupt === "temporaire" ? "Rupture" + (r => r && r.depuis ? " depuis le " + r.depuis : "")(s.ruptures.find(x => x.k === f.k))
+              : s.rupt === "definitive" ? "Rupture définitive" : "Rupture · non distribué"}</span>` : ""}${old ? '<span class="badge b-old">Ancien</span>' : ""}</div>
           ${(o => o.length ? `<div class="st-rupt">Rupture : ${o.map(x => esc(x.label) + (x.depuis ? ` <small>(depuis le ${x.depuis})</small>` : "")).join(", ")}</div>` : "")(s.ruptures.filter(x => x.k !== f.k))}
         </div>
         <div>
-          <div class="st-price">${off ? "Indispo." : fmt(s.price)}</div>        </div>
+          <div class="st-price">${off ? "RUPTURE" : fmt(s.price)}</div>        </div>
         ${off ? "" : `<div class="bar"><i class="${s.price === z.min ? "top" : ""}" style="width:${w.toFixed(0)}%"></i></div>`}
       </a>
     </div>`;
@@ -719,7 +739,7 @@ function toggleSettings(open) {
 $("gear").addEventListener("click", () => toggleSettings($("settings").hidden));
 // Un clic n'importe où sur le panneau le referme ; seule la case à cocher GPS change le réglage
 $("settings").addEventListener("click", e => {
-  if (e.target.id === "gpsAllowed" || e.target.closest(".vol-input")) return;
+  if (e.target.id === "gpsAllowed" || e.target.closest(".vol-input, .backup textarea, .backup-actions")) return;
   toggleSettings(false); $("gear").focus();
 });
 // Réglages numériques (volume du plein, consommation) : recalcul immédiat pendant la saisie,
@@ -784,6 +804,43 @@ document.addEventListener("visibilitychange", () => {
   if (state.pending || !state.data || Date.now() - state.data.at > 60e3) load();
 });
 window.addEventListener("pagehide", closeWidget);
+
+// Sauvegarde des favorites des communes (le GPS n'est jamais sauvegardé) sous forme de code texte
+function backupCode() {
+  const data = {};
+  for (const k of Object.keys(PLACES)) if ((state.favsBy[k] || []).length) data[k] = state.favsBy[k];
+  return "MSE1:" + btoa(JSON.stringify(data));
+}
+function backupMsg(text, err) { $("backupMsg").textContent = text; $("backupMsg").classList.toggle("err", !!err); }
+$("gear").addEventListener("click", () => { $("backupCode").value = backupCode(); backupMsg(""); });
+$("backupCopy").addEventListener("click", () => {
+  const code = $("backupCode").value = backupCode();
+  const done = () => backupMsg("Code copié. Gardez-le dans une note avant de réinstaller.");
+  const manual = () => { $("backupCode").focus(); $("backupCode").select(); backupMsg("Copie automatique impossible : le code est sélectionné, copiez-le à la main."); };
+  try { navigator.clipboard.writeText(code).then(done, manual); } catch { manual(); }
+});
+$("backupRestore").addEventListener("click", () => {
+  let data;
+  try {
+    const raw = $("backupCode").value.trim();
+    if (!raw.startsWith("MSE1:")) throw 0;
+    data = JSON.parse(atob(raw.slice(5)));
+  } catch { return backupMsg("Ce code n'est pas reconnu. Collez le code complet commençant par MSE1:", true); }
+  let n = 0;
+  for (const k of Object.keys(PLACES)) {
+    const ids = Array.isArray(data[k]) ? data[k].filter(Number.isFinite) : [];
+    if (!ids.length) continue;
+    state.favsBy[k] = [...new Set([...(state.favsBy[k] || []), ...ids])];
+    n += ids.length;
+  }
+  store.set("favsBy", state.favsBy);
+  state.favIds = state.favsBy[state.place] || [];
+  backupMsg(n ? `${n} favorite${n > 1 ? "s" : ""} restaurée${n > 1 ? "s" : ""}.` : "Ce code ne contient aucune favorite.", !n);
+  render(); load();
+});
+
+// Demande au téléphone de ne pas effacer les données de l'application (favorites, réglages)
+try { navigator.storage && navigator.storage.persist && navigator.storage.persist().catch(() => {}); } catch {}
 
 if (!state.gpsAllowed) clearGpsHistory();
 resolveHome();
