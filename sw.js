@@ -1,7 +1,7 @@
 // Réseau d'abord pour l'application (toujours la dernière version),
 // cache en secours hors connexion. Les appels à l'API de prix ne sont pas interceptés.
-const CACHE = "station-eco-v10";
-const SHELL = ["./", "index.html", "names.js", "logos.js", "manifest.webmanifest", "logo-128.png",
+const CACHE = "station-eco-v11";
+const SHELL = ["./", "index.html", "names.js", "logos.js", "favoris.js", "manifest.webmanifest", "logo-128.png",
   "icon-192.png", "icon-512.png", "icon-180.png", "icon-maskable-512.png"];
 
 self.addEventListener("install", e => {

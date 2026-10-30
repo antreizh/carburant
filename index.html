@@ -330,7 +330,7 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
     </div>
     <div class="backup">
       <b>Sauvegarde des favorites</b>
-      <small>Le téléphone efface les favorites si l'application est désinstallée. Copiez ce code avant de réinstaller (dans une note, par exemple), puis collez-le ici et touchez « Restaurer ».</small>
+      <small>Ce code contient vos communes et stations favorites. Pour qu'elles survivent à l'effacement des données du navigateur, collez-le dans le fichier favoris.js de votre site GitHub : elles seront reprises automatiquement. Vous pouvez aussi le garder dans une note, puis le coller ici et toucher « Restaurer ».</small>
       <textarea id="backupCode" aria-label="Code de sauvegarde des favorites" spellcheck="false" autocomplete="off"></textarea>
       <div class="backup-actions">
         <button type="button" id="backupCopy">Copier le code</button>
@@ -376,6 +376,7 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
 
 <script src="names.js"></script>
 <script src="logos.js"></script>
+<script src="favoris.js"></script>
 <script>
 // Anciennes communes figées : servent uniquement à reprendre les données des versions précédentes
 const LEGACY = {
@@ -400,6 +401,8 @@ const store = {
   set(k, v) { try { localStorage.setItem("cp." + k, JSON.stringify(v)); } catch {} },
   del(k) { try { localStorage.removeItem("cp." + k); } catch {} }
 };
+// Mémoire vide (premier lancement, données du navigateur effacées) : les favorites viendront de favoris.js
+const FRESH = ["places", "place", "favsBy"].every(k => store.get(k, null) === null);
 const state = {
   fuel: store.get("fuel", "gazole"),
   radius: store.get("radius", 10),
@@ -1165,12 +1168,22 @@ $("backupCopy").addEventListener("click", () => {
   try { navigator.clipboard.writeText(code).then(done, manual); } catch { manual(); }
 });
 $("backupRestore").addEventListener("click", () => {
+  const res = applyBackup($("backupCode").value);
+  if (!res) return backupMsg("Ce code n'est pas reconnu. Collez le code complet commençant par MSE1:", true);
+  const n = res.stations;
+  backupMsg(n || res.places ? `${res.places} commune${res.places > 1 ? "s" : ""} et ${n} station${n > 1 ? "s" : ""} favorite${n > 1 ? "s" : ""} restaurée${n > 1 ? "s" : ""}.` : "Ce code ne contient aucune favorite.", !(n || res.places));
+  if (!state.place && state.favPlaces[0]) { setPlace(state.favPlaces[0]); resolveHome(); }
+  render(); load();
+});
+// Restaure un code de sauvegarde (Paramètres ou fichier favoris.js) ; renvoie null si le code est invalide
+function applyBackup(code) {
   let data;
   try {
-    const raw = $("backupCode").value.trim();
+    const raw = String(code || "").trim();
     if (!raw.startsWith("MSE1:")) throw 0;
     data = JSON.parse(decodeURIComponent(escape(atob(raw.slice(5)))));
-  } catch { return backupMsg("Ce code n'est pas reconnu. Collez le code complet commençant par MSE1:", true); }
+  } catch { return null; }
+  const placesBefore = state.favPlaces.length;
   // Communes saisies contenues dans le code : ajoutées à la liste si besoin
   for (const p of Array.isArray(data._places) ? data._places : []) {
     if (!p || !/^c_\w+$/.test(p.id) || !Number.isFinite(p.lat) || !Number.isFinite(p.lon)) continue;
@@ -1193,14 +1206,15 @@ $("backupRestore").addEventListener("click", () => {
   }
   store.set("favsBy", state.favsBy);
   state.favIds = state.favsBy[state.place] || [];
-  backupMsg(n ? `${n} favorite${n > 1 ? "s" : ""} restaurée${n > 1 ? "s" : ""}.` : "Ce code ne contient aucune favorite.", !n);
-  render(); load();
-});
+  return { stations: n, places: state.favPlaces.length - placesBefore };
+}
 
 // Demande au téléphone de ne pas effacer les données de l'application (favorites, réglages)
 try { navigator.storage && navigator.storage.persist && navigator.storage.persist().catch(() => {}); } catch {}
 
 if (!state.gpsAllowed) clearGpsHistory();
+// Données effacées : communes et stations favorites reprises du fichier favoris.js publié avec l'application
+if (FRESH && window.FAVORIS && applyBackup(window.FAVORIS) && !state.place && state.favPlaces[0]) setPlace(state.favPlaces[0]);
 resolveHome();
 render();
 load();
