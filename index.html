@@ -61,8 +61,12 @@ button:focus-visible, a:focus-visible { outline: 2px solid var(--led); outline-o
 /* Totem */
 .totem { background: var(--totem); color: var(--totem-ink); border-radius: 14px; padding: 14px 16px 16px; display: grid; gap: 10px; }
 /* En-tête : sélecteur de commune sur toute la largeur, puis boutons à gauche et rayon aligné à droite */
-.totem-top { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "sel sel" "tools radius"; align-items: center; gap: 6px 8px; }
+.totem-top { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "sel sel star" "tools radius radius"; align-items: center; gap: 6px 8px; }
 .totem-top select { grid-area: sel; }
+.place-star { grid-area: star; border: 0; background: none; color: var(--city-totem); padding: 4px; line-height: 0; }
+.place-star svg { width: 24px; height: 24px; }
+.place-star[aria-pressed="true"] { color: var(--led); }
+.place-star[aria-pressed="true"] svg { fill: currentColor; }
 .totem-top .tools { grid-area: tools; }
 /* Bandeau de marque : logo, nom, slogan */
 .brandbar { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 2px 2px 0; }
@@ -263,8 +267,11 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
   <section class="totem" aria-live="polite">
     <div class="totem-top">
         <select class="place-name" id="placeSel" aria-label="Commune de référence">
-          <option value="spdp">Saint-Pierre-du-Perray</option>
+          <option value="">Choisir une commune</option>
         </select>
+        <button type="button" class="place-star" id="placeStar" aria-pressed="false" aria-label="Ajouter aux communes favorites" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>
+        </button>
       <div class="tools">
         <button class="refresh" id="refresh" aria-label="Actualiser">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.6M20 4v5h-5"/></svg>
@@ -370,12 +377,13 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
 <script src="names.js"></script>
 <script src="logos.js"></script>
 <script>
-const PLACES = {
-  spdp: { lat: 48.6122, lon: 2.4945, name: "Saint-Pierre-du-Perray" },
-  chateaulin: { lat: 48.1967, lon: -4.0900, name: "Châteaulin" },
-  corny: { lat: 49.0353, lon: 6.0603, name: "Corny-sur-Moselle" }
+// Anciennes communes figées : servent uniquement à reprendre les données des versions précédentes
+const LEGACY = {
+  spdp: { id: "c_91573", name: "Saint-Pierre-du-Perray", cp: "91280", lat: 48.6122, lon: 2.4945 },
+  chateaulin: { id: "c_29026", name: "Châteaulin", cp: "29150", lat: 48.1967, lon: -4.0900 },
+  corny: { id: "c_57153", name: "Corny-sur-Moselle", cp: "57680", lat: 49.0353, lon: 6.0603 }
 };
-let HOME = PLACES.spdp;   // point de référence courant (commune choisie ou position GPS)
+let HOME = null;   // point de référence courant (commune choisie ou position GPS) ; null tant qu'aucune commune
 const API = "https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/prix-des-carburants-en-france-flux-instantane-v2/records";
 const CONSO_DEFAUT = 4.9, CONSO_MIN = 2, CONSO_MAX = 25; // litres / 100 km, modifiable dans les paramètres
 const NAMES_API ="https://api.prix-carburants.2aaz.fr/station/";
@@ -396,27 +404,40 @@ const state = {
   fuel: store.get("fuel", "gazole"),
   radius: store.get("radius", 10),
   sort: store.get("sort", "price"),
-  favsBy: store.get("favsBy", null),     // favorites par localité : { spdp: [ids], chateaulin: [...], gps: [...] }
-  favIds: [],                            // favorites de la localité courante
+  favsBy: store.get("favsBy", null),     // stations favorites par commune : { c_91573: [ids], …, gps: [ids] }
+  favIds: [],                            // stations favorites de la commune courante
   tab: store.get("tab", "near"),
-  place: store.get("place", "spdp"),     // clé de PLACES, d'une commune saisie (c_…) ou "gps"
-  customPlaces: store.get("customPlaces", []),   // communes saisies : [{ id, name, cp, lat, lon }], la plus récente d'abord
+  place: store.get("place", null),       // commune courante (c_<code INSEE>), "gps", ou null au premier lancement
+  places: store.get("places", null),     // communes connues : [{ id, name, cp, lat, lon }]
+  favPlaces: store.get("favPlaces", null),   // communes favorites (ids), dans l'ordre où elles ont été ajoutées
   plein: store.get("plein", 48),          // volume du plein en litres (coût complet, écart)
   conso: store.get("conso", CONSO_DEFAUT), // consommation en L/100 km (aller-retour)
   road: store.get("road", null),           // { key, place, d: { id: { km, min } } } distances par la route
-  gpsAllowed: store.get("gpsAllowed", store.get("place", "spdp") === "gps"),
+  gpsAllowed: store.get("gpsAllowed", store.get("place", null) === "gps"),
   data: store.get("cache", null),        // { at, radius, place, rows }
   favRows: store.get("favCache", {}),    // id -> ligne brute (favorites hors rayon)
   names: Object.assign({}, window.STATION_NAMES || {}, store.get("names", {})),
   loading: false
 };
-const getPlace = k => PLACES[k] || state.customPlaces.find(p => p.id === k) || null;
-if (!getPlace(state.place) && !(state.place === "gps" && state.gpsAllowed)) state.place = "spdp";
-if (state.data && (state.data.place || "spdp") !== state.place) state.data = null;   // cache d'une autre commune
-if (!state.favsBy) {   // ancienne liste unique : rattachée à la localité en cours
-  state.favsBy = { [state.place]: store.get("favs", []) };
-  store.set("favsBy", state.favsBy); store.del("favs");
+// Reprise des versions précédentes : anciennes communes figées et communes saisies → communes favorites
+if (!state.places) {
+  const custom = store.get("customPlaces", []);
+  if (!state.favsBy) state.favsBy = state.place ? { [state.place]: store.get("favs", []) } : {};
+  const used = Object.keys(LEGACY).filter(k => k === state.place || (state.favsBy[k] || []).length);
+  state.places = used.map(k => LEGACY[k]).concat(custom.filter(p => !used.some(k => LEGACY[k].id === p.id)));
+  state.favPlaces = state.places.map(p => p.id);
+  for (const k of Object.keys(LEGACY)) if (state.favsBy[k]) { state.favsBy[LEGACY[k].id] = state.favsBy[k]; delete state.favsBy[k]; }
+  if (LEGACY[state.place]) state.place = LEGACY[state.place].id;
+  if (state.data && LEGACY[state.data.place || "spdp"]) state.data.place = LEGACY[state.data.place || "spdp"].id;
+  store.set("places", state.places); store.set("favPlaces", state.favPlaces); store.set("favsBy", state.favsBy);
+  store.set("place", state.place); store.del("customPlaces"); store.del("favs");
 }
+if (!state.favsBy) state.favsBy = {};
+if (!state.favPlaces) state.favPlaces = [];
+const getPlace = k => state.places.find(p => p.id === k) || null;
+const isFavPlace = k => state.favPlaces.includes(k);
+if (!getPlace(state.place) && !(state.place === "gps" && state.gpsAllowed)) state.place = state.favPlaces[0] || null;
+if (state.data && state.data.place !== state.place) state.data = null;   // cache d'une autre commune
 delete state.favsBy.gps;   // favorites GPS d'une session précédente (fermeture non détectée)
 store.set("favsBy", state.favsBy);
 state.favIds = state.favsBy[state.place] || [];
@@ -519,7 +540,8 @@ async function locate(signal) {
   return pos;
 }
 function resolveHome() {
-  HOME = state.place === "gps" ? store.get("gpsPos", null) || PLACES.spdp : getPlace(state.place) || PLACES.spdp;
+  const fallback = getPlace(state.favPlaces[0]) || null;   // GPS sans position connue : 1re commune favorite
+  HOME = state.place === "gps" ? store.get("gpsPos", null) || fallback : getPlace(state.place);
 }
 // Efface tout l'historique de position : dernière position GPS + prix chargés autour d'elle
 function clearGpsHistory() {
@@ -544,6 +566,7 @@ async function query(where, signal) {
 
 async function load() {
   if (!isOpen()) { state.pending = true; return; }       // widget fermé : chargement reporté à l'ouverture
+  if (!state.place) return;                              // aucune commune choisie : rien à charger
   if (state.loading) { state.reload = true; return; }   // relancé à la fin du chargement en cours
   state.loading = true; state.reload = false; state.pending = false;
   const ctrl = loadCtrl = new AbortController(), signal = ctrl.signal;
@@ -677,15 +700,25 @@ function render() {
   $("tabFav").setAttribute("aria-selected", state.tab === "fav");
   $("favCount").textContent = state.favIds.length ? "(" + state.favIds.length + ")" : "";
   // Liste des communes : les 3 de base, les communes saisies, « Autre commune… », puis le GPS
-  const opts = Object.entries(PLACES).map(([k, p]) => [k, p.name])
-    .concat(state.customPlaces.map(p => [p.id, p.name]))
-    .concat([["other", "Autre commune…"], ["gps", state.gpsAllowed ? "Ma position (GPS)" : "GPS désactivé"]]);
-  const sig = opts.map(o => o.join("=")).join("|");
-  if ($("placeSel").dataset.sig !== sig) {
-    $("placeSel").innerHTML = opts.map(([k, n]) => `<option value="${esc(k)}"${k === "gps" && !state.gpsAllowed ? " disabled" : ""}>${esc(n)}</option>`).join("");
-    $("placeSel").dataset.sig = sig;
+  // Liste : communes favorites (★), la commune en cours si elle n'est pas favorite, « Autre commune… », le GPS
+  const cur = getPlace(state.place);
+  const opt = (k, n, dis) => `<option value="${esc(k)}"${dis ? " disabled" : ""}>${esc(n)}</option>`;
+  const favs = state.favPlaces.map(getPlace).filter(Boolean);
+  const html = (state.place ? "" : opt("", "Choisir une commune"))
+    + (favs.length ? `<optgroup label="★ Communes favorites">${favs.map(p => opt(p.id, p.name)).join("")}</optgroup>` : "")
+    + `<optgroup label="Autres choix">`
+    + (cur && !isFavPlace(cur.id) ? opt(cur.id, cur.name) : "")
+    + opt("other", "Autre commune…") + opt("gps", state.gpsAllowed ? "Ma position (GPS)" : "GPS désactivé", !state.gpsAllowed)
+    + `</optgroup>`;
+  if ($("placeSel").dataset.sig !== html) { $("placeSel").innerHTML = html; $("placeSel").dataset.sig = html; }
+  $("placeSel").value = state.place || "";
+  // Étoile de la commune : ajoute ou retire la commune en cours des communes favorites
+  $("placeStar").hidden = !cur;
+  if (cur) {
+    const on = isFavPlace(cur.id);
+    $("placeStar").setAttribute("aria-pressed", on);
+    $("placeStar").setAttribute("aria-label", (on ? "Retirer des communes favorites : " : "Ajouter aux communes favorites : ") + cur.name);
   }
-  $("placeSel").value = state.place;
   $("gpsAllowed").checked = state.gpsAllowed;
   if (document.activeElement !== $("plein")) $("plein").value = state.plein;
   $("sSaveLabel").textContent = `Écart ${state.plein} L`;
@@ -699,6 +732,13 @@ function render() {
   $("favs").hidden = state.tab !== "fav";
 
   const d = state.data;
+  if (!state.place) {      // premier lancement : aucune commune
+    $("bestWhere").textContent = "Aucune commune choisie"; $("bestBrand").textContent = "";
+    $("bestSub").textContent = "Choisissez une commune en haut, ou activez le GPS dans Paramètres.";
+    $("stamp").textContent = "–";
+    $("list").innerHTML = `<div class="empty">Choisissez une commune dans la liste en haut (« Autre commune… »), puis touchez l'étoile ☆ pour la garder en favorite.</div>`;
+    return;
+  }
   if (!d) return;
   const at = new Date(d.at);
   $("stamp").textContent = (Date.now() - d.at < 864e5 ? "" : at.toLocaleDateString("fr-FR") + " ") +
@@ -738,7 +778,7 @@ function render() {
   } else if (state.gpsError) {
     $("alert").hidden = false;
     $("alert").innerHTML = "<strong>Position GPS indisponible.</strong> " +
-      (store.get("gpsPos", null) ? "Dernière position connue utilisée." : "Prix affichés autour de Saint-Pierre-du-Perray.") +
+      (store.get("gpsPos", null) ? "Dernière position connue utilisée." : HOME ? `Prix affichés autour de ${esc(HOME.name)}.` : "Choisissez une commune dans la liste.") +
       " Vérifiez que le téléphone autorise la localisation pour cette application.";
   } else $("alert").hidden = true;
 
@@ -758,7 +798,7 @@ function render() {
 // Panneau « i » : règles de calcul, avec les réglages en cours et un exemple chiffré réel
 const num = (v, d) => v.toFixed(d).replace(".", ",");
 function renderCalc(f, z, shown) {
-  const C = num(state.conso, 1), V = state.plein, place = state.place === "gps" ? "votre position GPS" : HOME.name;
+  const C = num(state.conso, 1), V = state.plein, place = state.place === "gps" ? "votre position GPS" : HOME ? HOME.name : "la commune choisie";
   // Exemple : la station disponible la plus proche
   const ex = (shown || []).filter(s => s.price != null && !s.rupt && s.tripKm != null).sort((a, b) => a.dist - b.dist)[0];
   let exHtml = `<p class="muted">L'exemple apparaîtra dès que les prix seront chargés.</p>`;
@@ -1005,8 +1045,9 @@ $("gpsAllowed").addEventListener("change", e => {
     if (wasGps && loadCtrl) loadCtrl.abort();         // stoppe une localisation en cours
     clearGpsHistory();
     if (wasGps) {                                      // retour à la commune par défaut
-      setPlace("spdp");
+      setPlace(state.favPlaces[0] || null);                // retour à la 1re commune favorite
       resolveHome(); state.gpsError = false;
+      if (!state.place) { render(); return openCity(); }
       $("list").innerHTML = `<div class="empty">Chargement des prix…</div>`;
       render(); load(); return;
     }
@@ -1015,13 +1056,15 @@ $("gpsAllowed").addEventListener("change", e => {
 });
 function changePlace(p) {
   setPlace(p);
+  prunePlaces(p);           // une commune non favorite quitte la liste dès qu'on en choisit une autre
   resolveHome(); state.data = null; state.gpsError = false;
   $("list").innerHTML = `<div class="empty">Chargement des prix…</div>`;
   $("bestWhere").textContent = "Chargement…"; $("bestBrand").textContent = ""; $("bestSub").innerHTML = "&nbsp;";
   render(); load();
 }
 $("placeSel").addEventListener("change", e => {
-  if (e.target.value === "other") { e.target.value = state.place; return openCity(); }
+  if (e.target.value === "other") { e.target.value = state.place || ""; return openCity(); }
+  if (!e.target.value) return;
   changePlace(e.target.value);
 });
 
@@ -1065,13 +1108,22 @@ $("cityInput").addEventListener("input", () => {
 $("cityResults").addEventListener("click", e => {
   const b = e.target.closest("[data-city]"); if (b) pickCity(+b.dataset.city);
 });
+// Ne garde en mémoire que les communes utiles : favorites, commune en cours, communes ayant des stations favorites
+function prunePlaces(keep) {
+  state.places = state.places.filter(p => p.id === keep || p.id === state.place || isFavPlace(p.id) || (state.favsBy[p.id] || []).length);
+  store.set("places", state.places);
+}
+// Étoile de la commune : ajoute / retire la commune en cours des communes favorites
+$("placeStar").addEventListener("click", () => {
+  const id = state.place; if (!getPlace(id)) return;
+  state.favPlaces = isFavPlace(id) ? state.favPlaces.filter(x => x !== id) : state.favPlaces.concat(id);
+  store.set("favPlaces", state.favPlaces);
+  render();
+});
 function pickCity(i) {
   const c = cityHits[i]; if (!c) return;
-  if (!PLACES[c.id]) {   // mémorisée en tête de liste (8 communes au plus)
-    state.customPlaces = [{ id: c.id, name: c.name, cp: c.cp, lat: c.lat, lon: c.lon }]
-      .concat(state.customPlaces.filter(p => p.id !== c.id)).slice(0, 8);
-    store.set("customPlaces", state.customPlaces);
-  }
+  if (!getPlace(c.id)) state.places.push({ id: c.id, name: c.name, cp: c.cp, lat: c.lat, lon: c.lon });
+  prunePlaces(c.id);
   $("city").hidden = true;
   changePlace(c.id);
 }
@@ -1098,12 +1150,13 @@ window.addEventListener("pagehide", closeWidget);
 
 // Sauvegarde des favorites des communes (le GPS n'est jamais sauvegardé) sous forme de code texte
 // (communes saisies incluses, avec leurs coordonnées ; encodage UTF-8 pour les accents)
-const savableKeys = () => Object.keys(PLACES).concat(state.customPlaces.map(p => p.id));
+const savableKeys = () => state.places.map(p => p.id);
 function backupCode() {
   const data = {};
   for (const k of savableKeys()) if ((state.favsBy[k] || []).length) data[k] = state.favsBy[k];
-  const places = state.customPlaces.filter(p => data[p.id]);
+  const places = state.places.filter(p => data[p.id] || isFavPlace(p.id));
   if (places.length) data._places = places;
+  if (state.favPlaces.length) data._favPlaces = state.favPlaces;
   return "MSE1:" + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
 }
 function backupMsg(text, err) { $("backupMsg").textContent = text; $("backupMsg").classList.toggle("err", !!err); }
@@ -1124,9 +1177,16 @@ $("backupRestore").addEventListener("click", () => {
   // Communes saisies contenues dans le code : ajoutées à la liste si besoin
   for (const p of Array.isArray(data._places) ? data._places : []) {
     if (!p || !/^c_\w+$/.test(p.id) || !Number.isFinite(p.lat) || !Number.isFinite(p.lon)) continue;
-    if (!getPlace(p.id)) state.customPlaces.push({ id: p.id, name: String(p.name || "Commune"), cp: String(p.cp || ""), lat: p.lat, lon: p.lon });
+    if (!getPlace(p.id)) state.places.push({ id: p.id, name: String(p.name || "Commune"), cp: String(p.cp || ""), lat: p.lat, lon: p.lon });
   }
-  state.customPlaces = state.customPlaces.slice(0, 8); store.set("customPlaces", state.customPlaces);
+  // Codes des versions précédentes : anciennes clés (spdp, chateaulin, corny)
+  for (const k of Object.keys(LEGACY)) if (data[k]) {
+    data[LEGACY[k].id] = data[k];
+    if (!getPlace(LEGACY[k].id)) state.places.push(LEGACY[k]);
+    if (!data._favPlaces) data._favPlaces = []; data._favPlaces.push(LEGACY[k].id);
+  }
+  for (const id of Array.isArray(data._favPlaces) ? data._favPlaces : []) if (getPlace(id) && !isFavPlace(id)) state.favPlaces.push(id);
+  store.set("places", state.places); store.set("favPlaces", state.favPlaces);
   let n = 0;
   for (const k of savableKeys()) {
     const ids = Array.isArray(data[k]) ? data[k].filter(Number.isFinite) : [];
@@ -1147,6 +1207,7 @@ if (!state.gpsAllowed) clearGpsHistory();
 resolveHome();
 render();
 load();
+if (!state.place) openCity();   // premier lancement : on propose tout de suite de choisir une commune
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
