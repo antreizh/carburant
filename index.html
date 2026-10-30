@@ -120,6 +120,32 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
 
 /* Onglets */
 .tabs { display: grid; grid-template-columns: 1fr 1fr; background: var(--chip); border-radius: 11px; padding: 3px; }
+
+/* Onglet Calculs : règles de calcul avec exemple chiffré */
+.calc { background: var(--surface); border-radius: 14px; padding: 16px; display: grid; gap: 16px; cursor: pointer; }
+.calc-title { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin: 0; font: 700 15px/1.2 var(--font-display); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.info-btn { font: italic 700 15px/1 Georgia, "Times New Roman", serif; }
+
+/* Recherche d'une autre commune */
+.city { background: var(--surface); border-radius: 14px; padding: 14px; display: grid; gap: 8px; }
+.city input { width: 100%; font: 16px var(--font-body); padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); }
+.city small { color: var(--muted); font-size: 12px; }
+.city-cancel { border: 0; background: none; color: var(--muted); font: 600 13px var(--font-body); text-transform: none; letter-spacing: 0; padding: 2px 4px; }
+.city-results { display: grid; border-radius: 10px; overflow: hidden; }
+.city-results button { border: 0; border-top: 1px solid var(--line); background: none; text-align: left; padding: 10px 6px; display: grid; gap: 1px; }
+.city-results button:first-child { border-top: 0; }
+.city-results button:active, .city-results button:focus-visible { background: var(--chip); }
+.city-results b { font: 700 16px/1.2 var(--font-display); }
+.city-results span { font-size: 12px; color: var(--muted); }
+.city-msg { font-size: 13px; color: var(--muted); padding: 6px 2px; }
+.calc section { display: grid; gap: 6px; }
+.calc h3 { margin: 0; font: 700 17px/1.2 var(--font-display); letter-spacing: .02em; }
+.calc p, .calc li { margin: 0; font-size: 14px; line-height: 1.5; color: var(--ink); }
+.calc ul { margin: 0; padding-left: 18px; display: grid; gap: 3px; }
+.calc .muted { color: var(--muted); font-size: 13px; }
+.formula { background: var(--chip); border-radius: 10px; padding: 9px 12px; font: 600 15px/1.45 var(--font-display); letter-spacing: .01em; overflow-wrap: anywhere; }
+.formula small { display: block; font: 400 13px/1.45 var(--font-body); color: var(--muted); margin-top: 2px; }
+.calc .ex { border-left: 3px solid var(--brand); padding-left: 10px; }
 .tabs button { border: 0; background: none; padding: 8px 6px; border-radius: 9px; font: 600 15px/1 var(--font-display); letter-spacing: .03em; color: var(--muted); }
 .tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px #0000001f; }
 .tabs .n { color: var(--star); }
@@ -238,9 +264,6 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
     <div class="totem-top">
         <select class="place-name" id="placeSel" aria-label="Commune de référence">
           <option value="spdp">Saint-Pierre-du-Perray</option>
-          <option value="chateaulin">Châteaulin</option>
-          <option value="corny">Corny-sur-Moselle</option>
-          <option value="gps">Ma position (GPS)</option>
         </select>
       <div class="tools">
         <button class="refresh" id="refresh" aria-label="Actualiser">
@@ -250,6 +273,7 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
         <button class="gear" id="gear" aria-label="Paramètres" aria-expanded="false" aria-controls="settings">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
         </button>
+        <button class="gear info-btn" id="infoBtn" aria-label="Règles de calcul" aria-expanded="false" aria-controls="calc">i</button>
       </div>
       <span class="place-radius" id="place">rayon 10 km</span>
     </div>
@@ -269,6 +293,15 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
       <div class="stat"><b id="sAvail">–</b><span>Dispo</span></div>
     </div>
   </section>
+
+  <section class="city" id="city" hidden aria-label="Choisir une autre commune">
+    <h2 class="calc-title">Autre commune <button type="button" class="city-cancel" id="cityCancel">Annuler</button></h2>
+    <input type="search" id="cityInput" placeholder="Nom de la commune ou code postal" autocomplete="off" enterkeyhint="search" aria-describedby="cityHelp" aria-controls="cityResults">
+    <small id="cityHelp">Tapez au moins 2 lettres, puis touchez la bonne commune.</small>
+    <div class="city-results" id="cityResults" role="listbox" aria-label="Communes trouvées"></div>
+  </section>
+
+  <section class="calc" id="calc" hidden aria-label="Règles de calcul"></section>
 
   <section class="settings" id="settings" hidden aria-label="Paramètres">
     <h2>Paramètres <span class="close-hint">Toucher pour fermer</span></h2>
@@ -329,9 +362,8 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
     Prix : <a href="https://www.prix-carburants.gouv.fr" target="_blank" rel="noopener">prix-carburants.gouv.fr</a> (flux instantané). Noms : api.prix-carburants.2aaz.fr.<br>
     Prix déclarés par les stations. « Ancien » = prix non mis à jour depuis plus de 3 jours.<br>
     Position GPS : nom de commune via adresse.data.gouv.fr.<br>
-    Distances et temps par la route : OSRM / © contributeurs OpenStreetMap (à défaut : vol d'oiseau).<br>
-    Aller-retour = 2 × distance par la route × (<span id="consoFoot">4,9</span> L / 100) × prix de la station.<br>
-    Coût complet = <span id="pleinFoot">48</span> L × (prix station − prix le plus bas du carburant dans le rayon) + aller-retour.
+    Distances et temps par la route : OSRM / © contributeurs OpenStreetMap.<br>
+    Formules détaillées : onglet « Calculs ».
   </p>
 </main>
 
@@ -367,7 +399,8 @@ const state = {
   favsBy: store.get("favsBy", null),     // favorites par localité : { spdp: [ids], chateaulin: [...], gps: [...] }
   favIds: [],                            // favorites de la localité courante
   tab: store.get("tab", "near"),
-  place: store.get("place", "spdp"),     // clé de PLACES ou "gps"
+  place: store.get("place", "spdp"),     // clé de PLACES, d'une commune saisie (c_…) ou "gps"
+  customPlaces: store.get("customPlaces", []),   // communes saisies : [{ id, name, cp, lat, lon }], la plus récente d'abord
   plein: store.get("plein", 48),          // volume du plein en litres (coût complet, écart)
   conso: store.get("conso", CONSO_DEFAUT), // consommation en L/100 km (aller-retour)
   road: store.get("road", null),           // { key, place, d: { id: { km, min } } } distances par la route
@@ -377,7 +410,8 @@ const state = {
   names: Object.assign({}, window.STATION_NAMES || {}, store.get("names", {})),
   loading: false
 };
-if (!PLACES[state.place] && !(state.place === "gps" && state.gpsAllowed)) state.place = "spdp";
+const getPlace = k => PLACES[k] || state.customPlaces.find(p => p.id === k) || null;
+if (!getPlace(state.place) && !(state.place === "gps" && state.gpsAllowed)) state.place = "spdp";
 if (state.data && (state.data.place || "spdp") !== state.place) state.data = null;   // cache d'une autre commune
 if (!state.favsBy) {   // ancienne liste unique : rattachée à la localité en cours
   state.favsBy = { [state.place]: store.get("favs", []) };
@@ -485,7 +519,7 @@ async function locate(signal) {
   return pos;
 }
 function resolveHome() {
-  HOME = state.place === "gps" ? store.get("gpsPos", null) || PLACES.spdp : PLACES[state.place] || PLACES.spdp;
+  HOME = state.place === "gps" ? store.get("gpsPos", null) || PLACES.spdp : getPlace(state.place) || PLACES.spdp;
 }
 // Efface tout l'historique de position : dernière position GPS + prix chargés autour d'elle
 function clearGpsHistory() {
@@ -642,16 +676,20 @@ function render() {
   $("tabNear").setAttribute("aria-selected", state.tab === "near");
   $("tabFav").setAttribute("aria-selected", state.tab === "fav");
   $("favCount").textContent = state.favIds.length ? "(" + state.favIds.length + ")" : "";
-  const gpsOpt = $("placeSel").querySelector('[value="gps"]');
-  gpsOpt.disabled = !state.gpsAllowed;
-  gpsOpt.textContent = state.gpsAllowed ? "Ma position (GPS)" : "GPS désactivé";
+  // Liste des communes : les 3 de base, les communes saisies, « Autre commune… », puis le GPS
+  const opts = Object.entries(PLACES).map(([k, p]) => [k, p.name])
+    .concat(state.customPlaces.map(p => [p.id, p.name]))
+    .concat([["other", "Autre commune…"], ["gps", state.gpsAllowed ? "Ma position (GPS)" : "GPS désactivé"]]);
+  const sig = opts.map(o => o.join("=")).join("|");
+  if ($("placeSel").dataset.sig !== sig) {
+    $("placeSel").innerHTML = opts.map(([k, n]) => `<option value="${esc(k)}"${k === "gps" && !state.gpsAllowed ? " disabled" : ""}>${esc(n)}</option>`).join("");
+    $("placeSel").dataset.sig = sig;
+  }
   $("placeSel").value = state.place;
   $("gpsAllowed").checked = state.gpsAllowed;
   if (document.activeElement !== $("plein")) $("plein").value = state.plein;
   $("sSaveLabel").textContent = `Écart ${state.plein} L`;
-  $("pleinFoot").textContent = state.plein;
   if (document.activeElement !== $("conso")) $("conso").value = state.conso;
-  $("consoFoot").textContent = String(state.conso).replace(".", ",");
   const gp = store.get("gpsPos", null);
   $("gpsState").textContent = !state.gpsAllowed ? "Localisation désactivée · aucune position enregistrée."
     : gp ? `Dernière position enregistrée : autour de ${gp.city || "commune inconnue"}.` : "Aucune position enregistrée pour l'instant.";
@@ -714,6 +752,52 @@ function render() {
   if (state.tab === "near") renderList(shown, z, f);
   else renderFavs(f);
   if (state.openId != null) renderSheet();
+  if (!$("calc").hidden) renderCalc(f, z, shown);
+}
+
+// Panneau « i » : règles de calcul, avec les réglages en cours et un exemple chiffré réel
+const num = (v, d) => v.toFixed(d).replace(".", ",");
+function renderCalc(f, z, shown) {
+  const C = num(state.conso, 1), V = state.plein, place = state.place === "gps" ? "votre position GPS" : HOME.name;
+  // Exemple : la station disponible la plus proche
+  const ex = (shown || []).filter(s => s.price != null && !s.rupt && s.tripKm != null).sort((a, b) => a.dist - b.dist)[0];
+  let exHtml = `<p class="muted">L'exemple apparaîtra dès que les prix seront chargés.</p>`;
+  if (ex && z) {
+    const trip = tripCost(ex.tripKm, ex.price), full = fullCost(ex.tripKm, ex.price, z.min);
+    exHtml = `<div class="ex"><p><b>${esc(ex.name)}</b> · ${esc(f.label)} à ${fmt(ex.price)} € · ${distTxt(ex)}</p>
+      <p>Aller-retour = 2 × ${num(ex.tripKm, 2)} km × ${C} / 100 × ${fmt(ex.price)} € = <b>${tripTxt(trip)}</b></p>
+      <p>Coût complet = ${V} L × (${fmt(ex.price)} − ${fmt(z.min)}) + ${tripTxt(trip)} = <b>${fullTxt(full)}</b></p></div>`;
+  }
+  $("calc").innerHTML = `
+    <h2 class="calc-title">Règles de calcul <span class="close-hint">Toucher pour fermer</span></h2>
+    <section><h3>Stations retenues</h3>
+      <p>Toutes les stations situées à moins de ${state.radius} km <b>à vol d'oiseau</b> de ${esc(place)} et qui distribuent le carburant choisi. Vos favorites du rayon restent toujours affichées.</p>
+      <p class="muted">Une station dont le carburant est en rupture (temporaire ou définitive) passe en fin de liste avec la mention RUPTURE.</p></section>
+    <section><h3>Distance et temps</h3>
+      <p>Trajet le plus rapide <b>par la route en voiture</b> depuis ${esc(place)}, calculé par OSRM sur la carte OpenStreetMap, sans tenir compte du trafic.</p>
+      <p class="muted">Si ce service ne répond pas, la distance à vol d'oiseau est utilisée et indiquée « ≈ … à vol d'oiseau ».</p></section>
+    <section><h3>Aller-retour</h3>
+      <div class="formula">2 × distance × consommation / 100 × prix au litre<small>Consommation actuelle : ${C} L/100 km (réglable dans Paramètres).</small></div></section>
+    <section><h3>Coût complet</h3>
+      <div class="formula">plein × (prix de la station − prix le plus bas) + aller-retour<small>Plein actuel : ${V} L (réglable dans Paramètres). Le prix le plus bas est celui du carburant choisi dans le rayon.</small></div>
+      <p class="muted">C'est ce que vous coûte réellement le choix d'une station par rapport à la moins chère, trajet compris. Le tri « Coût complet » classe les stations sur ce montant.</p></section>
+    <section><h3>Exemple avec les prix du moment</h3>${exHtml}</section>
+    <section><h3>Chiffres du haut</h3>
+      <ul>
+        <li><b>Moins cher</b> : prix le plus bas du carburant choisi dans le rayon.</li>
+        <li><b>Médiane</b> : prix du milieu ; la moitié des stations est moins chère.</li>
+        <li><b>Max</b> : prix le plus élevé.</li>
+        <li><b>Écart ${V} L</b> : (Max − Moins cher) × ${V} L, arrondi à l'euro.</li>
+        <li><b>Dispo</b> : stations où le carburant est disponible / stations qui le distribuent.</li>
+      </ul></section>
+    <section><h3>Mentions</h3>
+      <ul>
+        <li><b>Ancien</b> : prix non mis à jour depuis plus de 3 jours.</li>
+        <li><b>Rupture depuis le…</b> : carburant momentanément épuisé.</li>
+        <li><b>Rupture définitive</b> : la station ne vend plus ce carburant.</li>
+      </ul></section>
+    <section><h3>Sources</h3>
+      <p class="muted">Prix et ruptures : flux officiel prix-carburants.gouv.fr, rechargé à chaque ouverture. Noms et marques : api.prix-carburants.2aaz.fr. Itinéraires : OSRM / © contributeurs OpenStreetMap.</p></section>`;
 }
 
 // Vue station : tous les carburants, prix, ruptures, aller-retour et coût complet
@@ -879,7 +963,15 @@ $("radius").addEventListener("click", e => {
 });
 function toggleSettings(open) {
   $("settings").hidden = !open; $("gear").setAttribute("aria-expanded", open);
+  if (open) toggleInfo(false);
 }
+// Panneau « i » (règles de calcul) : un seul panneau ouvert à la fois, un toucher le referme
+function toggleInfo(open) {
+  $("calc").hidden = !open; $("infoBtn").setAttribute("aria-expanded", open);
+  if (open) { toggleSettings(false); render(); }
+}
+$("infoBtn").addEventListener("click", () => toggleInfo($("calc").hidden));
+$("calc").addEventListener("click", () => { toggleInfo(false); $("infoBtn").focus(); });
 $("gear").addEventListener("click", () => toggleSettings($("settings").hidden));
 // Un clic n'importe où sur le panneau le referme ; seule la case à cocher GPS change le réglage
 $("settings").addEventListener("click", e => {
@@ -921,13 +1013,68 @@ $("gpsAllowed").addEventListener("change", e => {
   }
   render();
 });
-$("placeSel").addEventListener("change", e => {
-  setPlace(e.target.value);
+function changePlace(p) {
+  setPlace(p);
   resolveHome(); state.data = null; state.gpsError = false;
   $("list").innerHTML = `<div class="empty">Chargement des prix…</div>`;
   $("bestWhere").textContent = "Chargement…"; $("bestBrand").textContent = ""; $("bestSub").innerHTML = "&nbsp;";
   render(); load();
+}
+$("placeSel").addEventListener("change", e => {
+  if (e.target.value === "other") { e.target.value = state.place; return openCity(); }
+  changePlace(e.target.value);
 });
+
+// Saisie d'une autre commune : recherche dans la Base Adresse Nationale (communes uniquement)
+const CITY_API = "https://api-adresse.data.gouv.fr/search/?type=municipality&limit=6&q=";
+let cityTimer = null, cityCtrl = null, cityHits = [];
+function openCity() {
+  toggleInfo(false); toggleSettings(false);
+  $("city").hidden = false; $("cityInput").value = ""; $("cityResults").innerHTML = "";
+  $("cityInput").focus();
+}
+function closeCity() { $("city").hidden = true; if (cityCtrl) cityCtrl.abort(); $("placeSel").focus(); }
+$("cityCancel").addEventListener("click", closeCity);
+$("cityInput").addEventListener("keydown", e => {
+  if (e.key === "Escape") closeCity();
+  if (e.key === "Enter" && cityHits.length) { e.preventDefault(); pickCity(0); }
+});
+$("cityInput").addEventListener("input", () => {
+  clearTimeout(cityTimer);
+  const q = $("cityInput").value.trim();
+  if (q.length < 2) { cityHits = []; $("cityResults").innerHTML = ""; return; }
+  cityTimer = setTimeout(async () => {
+    if (cityCtrl) cityCtrl.abort();
+    cityCtrl = new AbortController();
+    try {
+      const r = await fetch(CITY_API + encodeURIComponent(q), { signal: cityCtrl.signal });
+      const j = await r.json();
+      cityHits = (j.features || []).map(f => ({
+        id: "c_" + f.properties.citycode, name: f.properties.name, cp: f.properties.postcode || "",
+        dep: (f.properties.context || "").split(",").slice(1).join(",").trim(),
+        lat: +f.geometry.coordinates[1].toFixed(5), lon: +f.geometry.coordinates[0].toFixed(5)
+      }));
+      $("cityResults").innerHTML = cityHits.length
+        ? cityHits.map((c, i) => `<button type="button" role="option" data-city="${i}"><b>${esc(c.name)}</b><span>${esc(c.cp)}${c.dep ? " · " + esc(c.dep) : ""}</span></button>`).join("")
+        : `<div class="city-msg">Aucune commune trouvée pour « ${esc(q)} ».</div>`;
+    } catch (e) {
+      if (e.name !== "AbortError") $("cityResults").innerHTML = `<div class="city-msg">Recherche impossible : vérifiez la connexion.</div>`;
+    }
+  }, 250);
+});
+$("cityResults").addEventListener("click", e => {
+  const b = e.target.closest("[data-city]"); if (b) pickCity(+b.dataset.city);
+});
+function pickCity(i) {
+  const c = cityHits[i]; if (!c) return;
+  if (!PLACES[c.id]) {   // mémorisée en tête de liste (8 communes au plus)
+    state.customPlaces = [{ id: c.id, name: c.name, cp: c.cp, lat: c.lat, lon: c.lon }]
+      .concat(state.customPlaces.filter(p => p.id !== c.id)).slice(0, 8);
+    store.set("customPlaces", state.customPlaces);
+  }
+  $("city").hidden = true;
+  changePlace(c.id);
+}
 $("sort").addEventListener("click", e => {
   const b = e.target.closest("[data-v]"); if (!b) return;
   state.sort = b.dataset.v; store.set("sort", state.sort); render();
@@ -950,10 +1097,14 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pagehide", closeWidget);
 
 // Sauvegarde des favorites des communes (le GPS n'est jamais sauvegardé) sous forme de code texte
+// (communes saisies incluses, avec leurs coordonnées ; encodage UTF-8 pour les accents)
+const savableKeys = () => Object.keys(PLACES).concat(state.customPlaces.map(p => p.id));
 function backupCode() {
   const data = {};
-  for (const k of Object.keys(PLACES)) if ((state.favsBy[k] || []).length) data[k] = state.favsBy[k];
-  return "MSE1:" + btoa(JSON.stringify(data));
+  for (const k of savableKeys()) if ((state.favsBy[k] || []).length) data[k] = state.favsBy[k];
+  const places = state.customPlaces.filter(p => data[p.id]);
+  if (places.length) data._places = places;
+  return "MSE1:" + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
 }
 function backupMsg(text, err) { $("backupMsg").textContent = text; $("backupMsg").classList.toggle("err", !!err); }
 $("gear").addEventListener("click", () => { $("backupCode").value = backupCode(); backupMsg(""); });
@@ -968,10 +1119,16 @@ $("backupRestore").addEventListener("click", () => {
   try {
     const raw = $("backupCode").value.trim();
     if (!raw.startsWith("MSE1:")) throw 0;
-    data = JSON.parse(atob(raw.slice(5)));
+    data = JSON.parse(decodeURIComponent(escape(atob(raw.slice(5)))));
   } catch { return backupMsg("Ce code n'est pas reconnu. Collez le code complet commençant par MSE1:", true); }
+  // Communes saisies contenues dans le code : ajoutées à la liste si besoin
+  for (const p of Array.isArray(data._places) ? data._places : []) {
+    if (!p || !/^c_\w+$/.test(p.id) || !Number.isFinite(p.lat) || !Number.isFinite(p.lon)) continue;
+    if (!getPlace(p.id)) state.customPlaces.push({ id: p.id, name: String(p.name || "Commune"), cp: String(p.cp || ""), lat: p.lat, lon: p.lon });
+  }
+  state.customPlaces = state.customPlaces.slice(0, 8); store.set("customPlaces", state.customPlaces);
   let n = 0;
-  for (const k of Object.keys(PLACES)) {
+  for (const k of savableKeys()) {
     const ids = Array.isArray(data[k]) ? data[k].filter(Number.isFinite) : [];
     if (!ids.length) continue;
     state.favsBy[k] = [...new Set([...(state.favsBy[k] || []), ...ids])];
