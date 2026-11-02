@@ -151,7 +151,12 @@ if ($back.Count) {
 
 if ($env:TEST_MAIL -eq 'true') {
   $lines = $rows | ForEach-Object { "• $(Get-Title $_ $names) : $(@{ rupture = 'en rupture'; dispo = 'disponible'; autre = 'non vendu' }[(Get-Status $_ $fav.Fuel)])" }
-  Send-Alert "Test – alertes Ma station service Éco ($label)" ("Les alertes fonctionnent. Stations favorites suivies pour $label :`n`n" + ($lines -join "`n") + $app)
+  $news = if ($back.Count) { "Fin de rupture détectée : un e-mail d'alerte vient d'être envoyé pour $($back.Count) station(s)." }
+          else { "Rien à signaler : aucune station favorite n'est sortie d'une rupture de $label depuis la dernière vérification." }
+  $nRupt = @($rows | Where-Object { (Get-Status $_ $fav.Fuel) -eq 'rupture' }).Count
+  $watch = if ($nRupt) { "$nRupt station(s) actuellement en rupture : vous serez prévenu dès que $label y sera de nouveau disponible." }
+           else { "Aucune station favorite n'est actuellement en rupture de $label." }
+  Send-Alert "Test – alertes Ma station service Éco ($label)" ("Les alertes fonctionnent.`n`n$news`n$watch`n`nStations favorites suivies pour $label :`n" + ($lines -join "`n") + $app)
 }
 
 # Enregistre l'état (fichier modifié seulement si quelque chose a changé)
