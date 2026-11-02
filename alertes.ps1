@@ -12,6 +12,22 @@
 # TEST_MAIL=true envoie un e-mail de test avec l'état actuel des stations suivies.
 
 $ErrorActionPreference = 'Stop'
+
+# Toute erreur est affichée en clair dans les « Annotations » de GitHub Actions, avec une piste de solution
+trap {
+  $e = $_.Exception; $m = $e.Message
+  while ($e.InnerException) { $e = $e.InnerException; $m += ' | ' + $e.Message }
+  $hint = switch -Regex ($m) {
+    'Authentication|5\.7\.|credentials|Username and Password' { " → Gmail refuse la connexion : vérifiez les secrets SMTP_USER (adresse Gmail complète) et SMTP_PASSWORD (mot de passe d'application de 16 lettres, sans espaces, créé avec ce même compte)." ; break }
+    'favoris\.js' { ' → Vérifiez favoris.js : la ligne doit être window.FAVORIS = "MSE1:…"; avec les guillemets et le point-virgule.' ; break }
+    'names\.js|Could not find|introuvable' { ' → Un fichier manque à la racine du dépôt (favoris.js, names.js, alertes.ps1 au même niveau que index.html).' ; break }
+    'resolve|Name or service|timed out|délai' { ' → Problème réseau passager : la prochaine vérification réessaiera.' ; break }
+    default { '' }
+  }
+  Write-Host ("::error title=Alertes::" + ($m + $hint) -replace "`r?`n", ' ')
+  exit 1
+}
+
 $Root = $PSScriptRoot
 $Api = 'https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/prix-des-carburants-en-france-flux-instantane-v2/records'
 $Fuels = [ordered]@{ gazole = 'Gazole'; e10 = 'SP95-E10'; sp98 = 'SP98'; sp95 = 'SP95'; e85 = 'E85'; gplc = 'GPLc' }
@@ -134,3 +150,4 @@ $all[$fav.Fuel] = $now
 $json = $all | ConvertTo-Json -Depth 5
 $old = if (Test-Path $StateFile) { [IO.File]::ReadAllText($StateFile).Trim() } else { '' }
 if ($json.Trim() -ne $old) { [IO.File]::WriteAllText($StateFile, $json + "`n", (New-Object Text.UTF8Encoding $false)); Write-Host 'État enregistré.' }
+
