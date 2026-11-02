@@ -25,6 +25,18 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Vérifier les fichiers nécessaires
+        shell: bash
+        run: |
+          ok=1
+          for f in alertes.ps1 favoris.js names.js; do
+            if [ ! -f "$f" ]; then
+              echo "::error title=Fichier manquant::$f est introuvable à la racine du dépôt (au même niveau que index.html). Fichiers présents : $(ls | tr '\n' ' ')"
+              ok=0
+            fi
+          done
+          [ "$ok" = 1 ]
+
       - name: Vérifier les stations favorites
         shell: pwsh
         run: ./alertes.ps1
@@ -38,11 +50,15 @@ jobs:
           TEST_MAIL: ${{ inputs.test }}
 
       - name: Enregistrer l'état des ruptures
+        shell: bash
         run: |
           if [ -n "$(git status --porcelain -- alertes-etat.json)" ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add alertes-etat.json
             git commit -m "Alertes : état des ruptures"
-            git push
+            if ! git push; then
+              echo "::error title=Enregistrement impossible::GitHub refuse d'enregistrer alertes-etat.json. Dans Settings → Actions → General → Workflow permissions, choisissez « Read and write permissions » puis Save."
+              exit 1
+            fi
           fi
