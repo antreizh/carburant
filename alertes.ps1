@@ -36,8 +36,11 @@ $StateFile = Join-Path $Root 'alertes-etat.json'
 # --- Favorites : code MSE1 de favoris.js (même format que la sauvegarde de l'application) ---
 function Read-Favoris {
   $txt = [IO.File]::ReadAllText((Join-Path $Root 'favoris.js'))
-  if ($txt -notmatch 'window\.FAVORIS\s*=\s*"MSE1:([^"]+)"') { throw 'favoris.js : code de sauvegarde introuvable.' }
-  $data = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($Matches[1])) | ConvertFrom-Json
+  # Code cherché n'importe où dans le fichier (guillemets abîmés ou retours à la ligne tolérés) ; le dernier trouvé l'emporte
+  $codes = [regex]::Matches(($txt -replace '\s', ''), 'MSE1:([A-Za-z0-9+/]+={0,2})')
+  if (-not $codes.Count) { throw 'favoris.js : code de sauvegarde introuvable (aucun texte commençant par MSE1:).' }
+  try { $data = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($codes[$codes.Count - 1].Groups[1].Value)) | ConvertFrom-Json }
+  catch { throw 'favoris.js : le code de sauvegarde est incomplet ou abîmé. Recopiez-le depuis Paramètres → Copier le code.' }
   $fuel = 'gazole'
   if ($data._fuel -and $Fuels.Contains([string]$data._fuel)) { $fuel = [string]$data._fuel }
   $ids = @()
@@ -150,4 +153,3 @@ $all[$fav.Fuel] = $now
 $json = $all | ConvertTo-Json -Depth 5
 $old = if (Test-Path $StateFile) { [IO.File]::ReadAllText($StateFile).Trim() } else { '' }
 if ($json.Trim() -ne $old) { [IO.File]::WriteAllText($StateFile, $json + "`n", (New-Object Text.UTF8Encoding $false)); Write-Host 'État enregistré.' }
-

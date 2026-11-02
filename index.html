@@ -1231,8 +1231,23 @@ function applyBackup(code) {
 try { navigator.storage && navigator.storage.persist && navigator.storage.persist().catch(() => {}); } catch {}
 
 if (!state.gpsAllowed) clearGpsHistory();
-// Données effacées : communes et stations favorites reprises du fichier favoris.js publié avec l'application
-if (FRESH && window.FAVORIS && applyBackup(window.FAVORIS) && !state.place && state.favPlaces[0]) setPlace(state.favPlaces[0]);
+// Données effacées : communes et stations favorites reprises du fichier favoris.js publié avec l'application.
+// Le code MSE1 est cherché dans le texte du fichier, même si la ligne a été abîmée au collage.
+function favorisCode(txt) {
+  const m = String(txt || "").replace(/\s/g, "").match(/MSE1:[A-Za-z0-9+/]+={0,2}/g);
+  return m ? m[m.length - 1] : null;
+}
+function startFromFavoris(code) {
+  if (!code || !applyBackup(code)) return false;
+  if (!state.place && state.favPlaces[0]) setPlace(state.favPlaces[0]);
+  return true;
+}
+if (FRESH && !startFromFavoris(window.FAVORIS)) {
+  fetch("favoris.js", { cache: "no-store" }).then(r => r.text()).then(t => {
+    if (!startFromFavoris(favorisCode(t))) return;
+    $("city").hidden = true; resolveHome(); render(); load();
+  }).catch(() => {});
+}
 resolveHome();
 render();
 load();
