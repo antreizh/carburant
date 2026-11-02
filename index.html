@@ -110,6 +110,7 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
 .backup textarea { width: 100%; min-height: 54px; font: 12px/1.35 ui-monospace, Consolas, monospace; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); resize: vertical; word-break: break-all; }
 .backup-msg { font-size: 12px; font-weight: 600; color: var(--good); min-height: 1em; }
 .backup-msg.err { color: var(--bad); }
+.vol select { font: 600 15px var(--font-body); padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); }
 .vol input { width: 64px; font: 600 16px var(--font-body); text-align: right; padding: 5px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font-variant-numeric: tabular-nums; }
 .best { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: 8px; }
 .best > div { min-width: 0; }
@@ -319,6 +320,11 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
     </div>
     <div class="gps-state" id="gpsState"></div>
     <div class="vol">
+      <b id="favFuelLabel">Carburant favori</b>
+      <span class="vol-input"><select id="favFuel" aria-labelledby="favFuelLabel" aria-describedby="favFuelHelp"></select></span>
+      <small id="favFuelHelp">La liste des stations s'ouvre sur ce carburant à chaque lancement. Vous pouvez toujours en choisir un autre en touchant les pastilles.</small>
+    </div>
+    <div class="vol">
       <b id="volLabel">Volume du plein</b>
       <span class="vol-input"><input type="number" id="plein" inputmode="numeric" min="5" max="150" step="1" aria-labelledby="volLabel" aria-describedby="volHelp"> L</span>
       <small id="volHelp">Utilisé pour le coût complet et l'écart affiché en haut. Par défaut : 48 L (de 5 à 150 L).</small>
@@ -404,7 +410,8 @@ const store = {
 // Mémoire vide (premier lancement, données du navigateur effacées) : les favorites viendront de favoris.js
 const FRESH = ["places", "place", "favsBy"].every(k => store.get(k, null) === null);
 const state = {
-  fuel: store.get("fuel", "gazole"),
+  favFuel: store.get("favFuel", store.get("fuel", "gazole")),   // carburant favori (Paramètres)
+  fuel: null,                                                   // carburant affiché : le favori à chaque lancement
   radius: store.get("radius", 10),
   sort: store.get("sort", "price"),
   favsBy: store.get("favsBy", null),     // stations favorites par commune : { c_91573: [ids], …, gps: [ids] }
@@ -435,6 +442,9 @@ if (!state.places) {
   store.set("places", state.places); store.set("favPlaces", state.favPlaces); store.set("favsBy", state.favsBy);
   store.set("place", state.place); store.del("customPlaces"); store.del("favs");
 }
+if (!FUELS.some(x => x.k === state.favFuel)) state.favFuel = "gazole";
+state.fuel = state.favFuel;   // la liste s'ouvre toujours sur le carburant favori
+store.del("fuel");            // ancien réglage « dernier carburant affiché », remplacé par le carburant favori
 if (!state.favsBy) state.favsBy = {};
 if (!state.favPlaces) state.favPlaces = [];
 const getPlace = k => state.places.find(p => p.id === k) || null;
@@ -724,6 +734,8 @@ function render() {
   }
   $("gpsAllowed").checked = state.gpsAllowed;
   if (document.activeElement !== $("plein")) $("plein").value = state.plein;
+  if (!$("favFuel").options.length) $("favFuel").innerHTML = FUELS.map(x => `<option value="${x.k}">${x.label}</option>`).join("");
+  $("favFuel").value = state.favFuel;
   $("sSaveLabel").textContent = `Écart ${state.plein} L`;
   if (document.activeElement !== $("conso")) $("conso").value = state.conso;
   const gp = store.get("gpsPos", null);
@@ -992,7 +1004,7 @@ document.addEventListener("click", e => {
   const op = e.target.closest("[data-open]");
   if (op) { openSheet(+op.dataset.open, op); return; }
   const chip = e.target.closest("[data-k]");
-  if (chip) { state.fuel = chip.dataset.k; store.set("fuel", state.fuel); render(); return; }
+  if (chip) { state.fuel = chip.dataset.k; render(); return; }   // choix ponctuel, non mémorisé
   const tab = e.target.closest("[data-tab]");
   if (tab) { state.tab = tab.dataset.tab; store.set("tab", state.tab); render(); return; }
 });
@@ -1036,6 +1048,10 @@ function bindNumber(key, min, max, decimals) {
   el.addEventListener("change", () => read(true));
   el.addEventListener("keydown", e => { if (e.key === "Enter") el.blur(); });
 }
+$("favFuel").addEventListener("change", e => {
+  state.favFuel = state.fuel = e.target.value; store.set("favFuel", state.favFuel);
+  render();
+});
 bindNumber("plein", PLEIN_MIN, PLEIN_MAX, 0);
 bindNumber("conso", CONSO_MIN, CONSO_MAX, 1);
 $("gpsAllowed").addEventListener("change", e => {
@@ -1157,6 +1173,7 @@ function backupCode() {
   const places = state.places.filter(p => data[p.id] || isFavPlace(p.id));
   if (places.length) data._places = places;
   if (state.favPlaces.length) data._favPlaces = state.favPlaces;
+  data._fuel = state.favFuel;
   return "MSE1:" + btoa(unescape(encodeURIComponent(JSON.stringify(data))));
 }
 function backupMsg(text, err) { $("backupMsg").textContent = text; $("backupMsg").classList.toggle("err", !!err); }
@@ -1206,6 +1223,7 @@ function applyBackup(code) {
   }
   store.set("favsBy", state.favsBy);
   state.favIds = state.favsBy[state.place] || [];
+  if (FUELS.some(x => x.k === data._fuel)) { state.favFuel = state.fuel = data._fuel; store.set("favFuel", state.favFuel); }
   return { stations: n, places: state.favPlaces.length - placesBefore };
 }
 
