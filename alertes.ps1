@@ -90,6 +90,7 @@ function Send-Alert($subject, $body) {
   $user = $env:SMTP_USER; $pass = $env:SMTP_PASSWORD
   $to = if ($env:MAIL_TO) { $env:MAIL_TO } else { $user }
   if (-not $user -or -not $pass) {
+    if ($env:GITHUB_ACTIONS) { Write-Host "::warning title=Alertes::E-mail non envoyé : les secrets SMTP_USER et SMTP_PASSWORD sont vides ou introuvables (Settings → Secrets and variables → Actions, onglet Secrets)." }
     Write-Host "--- Essai à blanc (pas d'identifiants SMTP) : e-mail non envoyé ---"
     Write-Host "Objet : $subject"; Write-Host $body; return
   }
@@ -105,12 +106,19 @@ function Send-Alert($subject, $body) {
   $smtp.Credentials = New-Object System.Net.NetworkCredential($user, $pass)
   $smtp.Send($msg); $msg.Dispose(); $smtp.Dispose()
   Write-Host "E-mail envoyé : $subject"
+  if ($env:GITHUB_ACTIONS) { Write-Host "::notice title=Alertes::E-mail envoyé à $to : $subject" }
 }
 
 # --- Programme principal ---
 $fav = Read-Favoris
 $label = $Fuels[$fav.Fuel]
-if (-not $fav.Ids.Count) { Write-Host 'Aucune station favorite dans favoris.js : rien à surveiller.'; return }
+if (-not $fav.Ids.Count) {
+  Write-Host "::warning title=Alertes::Aucune station favorite dans favoris.js : rien à surveiller. Collez-y votre code (Paramètres → Copier le code)."
+  if ($env:TEST_MAIL -eq 'true') {
+    Send-Alert "Test – alertes Ma station service Éco ($label)" ("L'envoi d'e-mails fonctionne, mais aucune station favorite n'est surveillée : favoris.js n'en contient pas.`n`nDans l'application : Paramètres → Sauvegarde des favorites → Copier le code, puis collez ce code dans favoris.js sur GitHub.")
+  }
+  return
+}
 Write-Host "Surveillance de $($fav.Ids.Count) station(s) favorite(s), carburant : $label"
 
 $names = Read-Names
