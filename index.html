@@ -376,7 +376,8 @@ select.place-name option { color: #15191e; background: #fff; font: 500 16px var(
     Prix déclarés par les stations. « Ancien » = prix non mis à jour depuis plus de 3 jours.<br>
     Position GPS : nom de commune via adresse.data.gouv.fr.<br>
     Distances et temps par la route : OSRM / © contributeurs OpenStreetMap.<br>
-    Formules détaillées : onglet « Calculs ».
+    Formules détaillées : bouton « i » en haut.<br>
+    Version du 03/11/2026 (tri des favorites).
   </p>
 </main>
 
@@ -743,7 +744,9 @@ function render() {
     : gp ? `Dernière position enregistrée : autour de ${gp.city || "commune inconnue"}.` : "Aucune position enregistrée pour l'instant.";
   $("place").textContent = `rayon ${state.radius} km` +
     (state.place === "gps" && HOME.city ? ` · autour de ${HOME.city}` : "");
-  $("nearCtrl").hidden = $("list").hidden = state.tab !== "near";
+  $("list").hidden = state.tab !== "near";
+  $("radius").hidden = state.tab !== "near";   // le tri reste disponible dans les deux onglets
+  $("nearCtrl").style.justifyContent = state.tab === "near" ? "" : "flex-end";
   $("favs").hidden = state.tab !== "fav";
 
   const d = state.data;
@@ -951,7 +954,22 @@ function renderFavs(f) {
     return;
   }
   const byId = Object.fromEntries((state.data ? state.data.rows : []).map(r => [r.id, r]));
-  $("favs").innerHTML = state.favIds.map(id => {
+  // Même tri que la liste « Autour de moi », sur le carburant affiché ; stations sans ce carburant (ou en rupture) à la fin
+  const z = zoneStats(f.k);
+  const keyed = state.favIds.map(id => {
+    const r = state.favRows[id] || byId[id];
+    const s = r ? station(r, f.k) : null;
+    const ok = s && s.price != null && !s.rupt;
+    return { id, ok, price: ok ? s.price : Infinity, dist: s && s.dist != null ? s.dist : Infinity,
+             full: ok && z ? fullCost(s.tripKm, s.price, z.min) : Infinity };
+  });
+  keyed.sort((a, b) => {
+    if (a.ok !== b.ok) return a.ok ? -1 : 1;
+    if (state.sort === "dist") return a.dist - b.dist;
+    if (state.sort === "full") return a.full - b.full || a.dist - b.dist;
+    return a.price - b.price || a.dist - b.dist;
+  });
+  $("favs").innerHTML = keyed.map(k => k.id).map(id => {
     const r = state.favRows[id] || byId[id];
     if (!r) return `<div class="card"><div class="card-head"><div><div class="card-name">${esc(stationName(id, ""))}</div><div class="card-sub">Données indisponibles pour le moment.</div></div>${favBtn(id, "")}</div></div>`;
     const base = station(r, f.k);
