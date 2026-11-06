@@ -59,6 +59,19 @@ function Read-Names {
   $Matches[1] | ConvertFrom-Json
 }
 
+# Le serveur des prix est parfois lent : 3 tentatives, espacées de 10 puis 30 secondes
+function Invoke-WithRetry([scriptblock]$call) {
+  $waits = 10, 30
+  for ($try = 1; ; $try++) {
+    try { return & $call }
+    catch {
+      if ($try -gt $waits.Count) { throw [System.TimeoutException]::new("Serveur des prix injoignable après $try tentatives : $($_.Exception.Message)") }
+      Write-Host "Tentative $try échouée ($($_.Exception.Message)) : nouvel essai dans $($waits[$try - 1]) s."
+      Start-Sleep -Seconds $waits[$try - 1]
+    }
+  }
+}
+
 function Get-Stations($ids, $fuel) {
   $rows = @()
   for ($i = 0; $i -lt $ids.Count; $i += 50) {
@@ -66,7 +79,7 @@ function Get-Stations($ids, $fuel) {
     $where = ($part | ForEach-Object { "id=$_" }) -join ' or '
     $select = "id,adresse,ville,cp,geom,${fuel}_prix,${fuel}_maj,${fuel}_rupture_type,${fuel}_rupture_debut"
     $url = $Api + '?where=' + [uri]::EscapeDataString($where) + '&select=' + [uri]::EscapeDataString($select) + '&limit=100'
-    $rows += @((Invoke-RestMethod -Uri $url -TimeoutSec 60).results)
+    $rows += @((Invoke-WithRetry { Invoke-RestMethod -Uri $url -TimeoutSec 40 }).results)
   }
   $rows
 }
@@ -122,7 +135,12 @@ if (-not $fav.Ids.Count) {
 Write-Host "Surveillance de $($fav.Ids.Count) station(s) favorite(s), carburant : $label"
 
 $names = Read-Names
-$rows = Get-Stations $fav.Ids $fav.Fuel
+try { $rows = Get-Stations $fav.Ids $fav.Fuel }
+catch [System.TimeoutException] {
+  # Panne passagère : rien n'est modifié (pas de fausse alerte), la vérification suivante réessaiera
+  Write-Host "::warning title=Alertes::$($_.Exception.Message) Vérification reportée à la prochaine exécution (dans 30 minutes)."
+  exit 0
+}
 $state = if (Test-Path $StateFile) { [IO.File]::ReadAllText($StateFile) | ConvertFrom-Json } else { $null }
 $prev = if ($state -and $state.($fav.Fuel)) { $state.($fav.Fuel) } else { $null }
 
